@@ -61,7 +61,7 @@ bot.on("message", async msg =>
         return;
     }
 
-    if (commands.get(command).ownerOnly && msg.author.id != process.BOT_OWNER)
+    if (commands.get(command).ownerOnly && msg.author.id != process.env.BOT_OWNER)
     {
         msg.channel.send(embgen(color, `Z komendy może korzystać tylko owner bota`));
         return;
