@@ -33,6 +33,8 @@ for (file of commandFiles) {
 	commands.set(command.name, command);
 }
 
+bot.on("error", err => console.error(err.message)); //temporary fix for an unknown websocket exception
+
 bot.on("message", async msg => 
 {
     if (!msg.content.startsWith(prefix) || msg.author.bot) return;
