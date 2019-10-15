@@ -1,6 +1,4 @@
-const setup = require("../setup");
 const fs =    require("fs");
-const config = require("../config.json");
 const rmf =   require("rimraf");
 const dl =    require("download-file");
 const zip =   require("nodeJs-zip");
@@ -9,18 +7,18 @@ const path =  require("path");
 module.exports = {
     name: 'src',
     description: 'ściąga pliki źródłowe i dane bota',
-    usage: '`src ls` - wysyła listę plików w katalogu głównym bota\n`src ls {ścieżka katalogu}` - wysyła listę plików w podanym katalogu\n`src dl {ścieżka do pliku}` - wysyła podany plik, o ile plik nie jest oznaczony jako tajny\n`src rm {ścieżka pliku}` - usuwa plik lub katalog, *tylko owner bota*\n`src up` - wysyła plik do systemu plików bota - *tylko owner bota*',
-    execute(msg)
+    usage: '`$psrc ls` - wysyła listę plików w katalogu głównym bota\n`$psrc ls {ścieżka katalogu}` - wysyła listę plików w podanym katalogu\n`$psrc dl {ścieżka do pliku}` - wysyła podany plik, o ile plik nie jest oznaczony jako tajny\n`$psrc rm {ścieżka pliku}` - usuwa plik lub katalog, *tylko owner bota*\n`$psrc up` - wysyła plik do systemu plików bota - *tylko owner bota*',
+    execute(msg, args, bot)
     {
         function thisEmbed(sdes)
         {
             if(!sdes)
-                return new Discord.RichEmbed().setColor("#4782b3");
+                return new bot.RichEmbed().setColor("#4782b3");
             else   
-                return new Discord.RichEmbed().setColor("#4782b3").setDescription(sdes);
+                return new bot.RichEmbed().setColor("#4782b3").setDescription(sdes);
         }
 
-        let args = setup.getArgs(msg.content, "|", 2);
+        args = bot.getArgs(msg.content, msg.prefix, "|", 2);
 
         if(args[1] == "ls")
         {

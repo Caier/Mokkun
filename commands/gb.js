@@ -1,13 +1,13 @@
-const { getArgs, embgen } = require("../setup");
 const { fromGB } = require("../searchMethods");
 
 module.exports = {
     name: 'gb',
     description: 'G E L B O O R U - obrazki thotów na wyciągnięcie ręki',
-    usage: '`gb {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam',
-    async execute(msg, args)
+    usage: '`$pgb {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam',
+    async execute(msg, args, bot)
     {
-        args = getArgs(msg.content, "|", 1);
+        const [embgen, getArgs] = [bot.embgen, bot.getArgs];
+        args = getArgs(msg.content, msg.prefix, "|");
         const color = "#006ffa";
 
         msg.channel.send(embgen(color, `Zbieranie postów...`)).then(async msgn => 
@@ -16,11 +16,11 @@ module.exports = {
      
             for (x of imgs)
             {
-                let embed = new Discord.RichEmbed();
+                let embed = new bot.RichEmbed();
                 if(x.tags != "video")
                 {
                     embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.page).setColor(color).setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/");
-                    if(x.comments != 0) embed.addField(`${x.comments[0].name}:`, x.comments[0].comment);
+                    if(x.comments != 0 && x.comments[0].comment.length < 1000) embed.addField(`${x.comments[0].name}:`, x.comments[0].comment);
                 } 
                 else embed = x.link;
 
@@ -32,7 +32,7 @@ module.exports = {
 
                     let eventL;
                     let page = 0;
-                    let combeds = [new Discord.RichEmbed().setTitle("Komentarze").setColor(color)];
+                    let combeds = [new bot.RichEmbed().setTitle("Komentarze").setColor(color)];
                     setTimeout(() => bot.removeListener("messageReactionAdd", eventL), 120000);
 
                     for(c of x.comments) {
@@ -44,7 +44,7 @@ module.exports = {
                                 emb.addField(`${c.score}👍  ${c.name}:`, c.comment);
                                 break;
                             } 
-                            else combeds.push(new Discord.RichEmbed().setTitle("Komentarze").setColor(color));
+                            else combeds.push(new bot.RichEmbed().setTitle("Komentarze").setColor(color));
                         }
                     }
 

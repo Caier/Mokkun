@@ -1,14 +1,13 @@
 const rp = require("request-promise");
 const $ =  require("cheerio");
-const setup = require("../setup");
 
 module.exports = {
     name: 'ph',
     description: 'Wyszukiwarka PornHuba',
-    usage: '`ph {wyszukanie} | (opcjonalnie){ilość wyników max. 5}` - zobacz sam',
-    async execute(msg, args)
+    usage: '`$pph {wyszukanie} | (opcjonalnie){ilość wyników max. 5}` - zobacz sam',
+    async execute(msg, args, bot)
     {
-        args = setup.getArgs(msg.content, "|", 1);
+        args = bot.getArgs(msg.content, msg.prefix, "|");
 
         async function fromPH(gay, tags, much)
         {
@@ -42,12 +41,12 @@ module.exports = {
             
             for (x of prn)
             {
-                embed = new Discord.RichEmbed().setColor("#FFA500");
+                embed = new bot.RichEmbed().setColor("#FFA500");
                 embed.setImage(x.thumb).setTitle(x.title).setURL(x.link).setFooter(`Długość: ${x.duration}`).setAuthor(`PornHub${gay ? ' Gay' : ''}`, "https://i.imgur.com/VVEYgqA.jpg",`https://pornhub.com${gay ? '/gayporn' : ''}`);
                 msg.channel.send(embed);
             }
 
-            if(prn == 0) msg.channel.send(new Discord.RichEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            if(prn == 0) msg.channel.send(new bot.RichEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
         }
     }
 }

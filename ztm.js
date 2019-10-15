@@ -1,9 +1,9 @@
 const rp = require("request-promise");
 const fs = require("fs");
-const config = require("./config.json");
-const vars = config.settings.variables;
+const path = require("path");
 const ent = require("html-entities").AllHtmlEntities;
 const ents = new ent();
+const stopF = path.join(__dirname, "ZTMstops.json");
 
 async function getStops(){
     async function updateStops(){
@@ -14,16 +14,16 @@ async function getStops(){
             break;
         }
         req = JSON.stringify(req);
-        fs.writeFileSync(vars.stop, req);
+        fs.writeFileSync(stopF, req);
         updated = true;
         console.log("updated stop.json");
     }
 
     let updated = false;
-    if(!fs.existsSync(vars.stop)) await updateStops();                       
-    if(Date.now() - new Date(fs.statSync(vars.stop).mtime).getTime() > 86400000) await updateStops(); 
+    if(!fs.existsSync(stopF)) await updateStops();                       
+    if(Date.now() - new Date(fs.statSync(stopF).mtime).getTime() > 86400000) await updateStops(); 
 
-    let stops = JSON.parse(fs.readFileSync(vars.stop));
+    let stops = JSON.parse(fs.readFileSync(stopF));
     stops.updated = updated;
     return stops;
 }
@@ -46,8 +46,8 @@ exports.checkZTMNews = async function(source)                                   
 
 exports.getShort = async function(short)
 {
-    if(!fs.existsSync(vars.stop)) await getStops();
-    let stop = fs.readFileSync(vars.stop);
+    if(!fs.existsSync(stopF)) await getStops();
+    let stop = fs.readFileSync(stopF);
     stop = JSON.parse(stop);
 
     if(/[A-zĄĆĘŁŃÓŚŻŹąćęłńóśżź0-9]{2,20}/.test(short))

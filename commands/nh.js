@@ -1,13 +1,12 @@
-const setup = require("../setup");
 const { fromNH } = require("../searchMethods");
 
 module.exports = {
     name: 'nh',
     description: 'Doujiny na wyciągnięcie ręki!',
-    usage: '`nh {tagi | numerek | URL}` - wyszukuje specyficzny doujin\n`nh` - losowy doujin',
-    async execute(msg, args)
+    usage: '`$pnh {tagi | numerek | URL}` - wyszukuje specyficzny doujin\n`$pnh` - losowy doujin',
+    async execute(msg, args, bot)
     {
-        args = setup.getArgs(msg.content, "|", 1);
+        args = bot.getArgs(msg.content, msg.prefix, "|");
 
         let doujin = (args[1]) 
         ? (/^[0-9]+$/.test(args[1])) 
@@ -18,11 +17,11 @@ module.exports = {
         : await fromNH();
        
         if(!doujin) {
-            msg.channel.send(new Discord.RichEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            msg.channel.send(new bot.RichEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
             return;
         }
 
-        let embed = new Discord.RichEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
+        let embed = new bot.RichEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
 
         msg.channel.send(embed).then(async nMsg => 
             {
@@ -54,7 +53,7 @@ module.exports = {
                             curPage = (curPage > doujin.maxPage) ? doujin.maxPage : (curPage < 1) ? 1 : null;
                         
                         let newpageURL = `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${curPage}.${doujin.format}`;
-                        nMsg.edit(new Discord.RichEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`));
+                        nMsg.edit(new bot.RichEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`));
                     }
                     else if(emoji == '⏮')
                     {
@@ -64,7 +63,7 @@ module.exports = {
                     }
                     else if(emoji == '❌')
                     {
-                        nMsg.edit(new Discord.RichEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
+                        nMsg.edit(new bot.RichEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
                         nMsg.clearReactions();
                         bot.removeListener("messageReactionAdd", eventL);
                     }

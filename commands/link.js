@@ -1,14 +1,12 @@
-const setup = require("../setup");
-
 module.exports = {
     name: 'link',
     description: 'Tworzy hiperłącze',
-    usage: '`link hide | {nazwa} | {link}` - tworzy hiperłącze nie pokazując jego twórcy\n`link {nazwa} | {link}` - to samo tylko z twórcą',
-    execute(msg)
+    usage: '`$plink hide | {nazwa} | {link}` - tworzy hiperłącze nie pokazując jego twórcy\n`$plink {nazwa} | {link}` - to samo tylko z twórcą',
+    execute(msg, args, bot)
     {
-        args = setup.getArgs(msg.content, "|");
+        args = bot.getArgs(msg.content, msg.prefix, "|");
 
-        embed = new Discord.RichEmbed()
+        embed = new bot.RichEmbed()
             .setColor(Math.floor(Math.random()*16777215));
 
         if(args[1] == 'hide')

@@ -1,21 +1,21 @@
-const config = require("../config.json");
 const ztm =    require("../ztm");
-const setup =  require("../setup");
 const fs =     require("fs");
 
 module.exports = {
     name: 'ztm',
     description: 'zbiór komend związanych z ZTM',
-    usage: '`ztm search {numer przystanku} {nazwa przystanku}` - wyszukuje szacowane czasy odjazdu dla danego przystanku\n`ztm n {id przystanku}` - to samo tylko przez ID przystanku\n`ztm {zapisany skrót przystanku}` - to samo tylko z własnym skrótem przystanku\n`ztm add {nazwa skrótu} {ID}` - dodaje skrót przystanku (tylko owner bota)\n`ztm subscribe` - subskrybuje newsletter ztm',
-    async execute(msg, args)
+    usage: '`$pztm search {numer przystanku} {nazwa przystanku}` - wyszukuje szacowane czasy odjazdu dla danego przystanku\n`$pztm n {id przystanku}` - to samo tylko przez ID przystanku\n`$pztm {zapisany skrót przystanku}` - to samo tylko z własnym skrótem przystanku\n`$pztm add {nazwa skrótu} {ID}` - dodaje skrót przystanku (tylko owner bota)\n`$pztm subscribe` - subskrybuje newsletter ztm',
+    async execute(msg, args, bot)
     {
-        class embedEstimates {
+        class embedEstimates extends bot.RichEmbed {
             constructor(data) {
+                super();
+                if(!data) return;
                 this.data = data;
-                this.embed = new Discord.RichEmbed().setColor(13632027)
+                this.setColor(13632027)
                 .setTitle(`${data.stopName} ${data.stopNumer} (id: ${data.numerTras})`)
                 .setDescription((data.updated) ? 'updated stops.json' : '\u200b');
-                if(data.estimates.length === 0) this.embed.addField('\u200b', "Brak danych o najbliższych odjazdach");
+                if(data.estimates.length === 0) this.addField('\u200b', "Brak danych o najbliższych odjazdach");
 
                 for (var i of data.estimates) {
                     i.routeId = i.routeId.toString();
@@ -28,12 +28,12 @@ module.exports = {
                                 i.vehId = (veh[z][x].type != "") ? `${veh[z][x].type} - ${veh[z][x].model} [${i.vehId}]` : `${veh[z][x].model} [${i.vehId}]`;
                                 break;
                             }
-                    this.embed.addField(`**${i.routeId}** ***${i.headsign}***`, `${i.vehId}\n**${i.estTime}**`);
+                    this.addField(`**${i.routeId}** ***${i.headsign}***`, `${i.vehId}\n**${i.estTime}**`);
                 }
             }
 
             send() {
-                msg.channel.send(this.embed).then(async nmsg => {
+                msg.channel.send(this).then(async nmsg => {
                     let eventL;
                     setTimeout(() => bot.removeListener("message", eventL), 86400000);
                     await nmsg.react('🔄');
@@ -41,19 +41,17 @@ module.exports = {
                         if(user.id != msg.author.id || react.message.id != nmsg.id) return;
                         if(react.emoji.toString() == '🔄') {
                             react.remove(user.id);
-                            nmsg.edit(new embedEstimates(await ztm.getSIP(this.data.numerTras)).embed);
+                            nmsg.edit(new embedEstimates(await ztm.getSIP(this.data.numerTras)));
                         }
                     });
                 });
             }
         }
        
-        let veh = JSON.parse(fs.readFileSync(config.settings.variables.pojazdy));
-        if(!msg.author.storage.hasOwnProperty('ztmShorts'))
-                msg.author.storage.ztmShorts = {};
+        let veh = JSON.parse(fs.readFileSync(bot.db.System.files.pojazdy));
 
-        if(args.length < 3 && msg.author.storage.ztmShorts[args[1]])
-            new embedEstimates(await ztm.getSIP(msg.author.storage.ztmShorts[args[1]])).send();
+        if(args.length < 3 && bot.db.Data[msg.author.id].ztmShorts && bot.db.Data[msg.author.id].ztmShorts[args[1]])
+            new embedEstimates(await ztm.getSIP(bot.db.Data[msg.author.id].ztmShorts[args[1]])).send();
 
         else if(args.length < 3 && args[1] != 'subscribe')
         {
@@ -65,7 +63,7 @@ module.exports = {
                 let prz = "";
                 for(var x = 0; x < result.length; x++)
                     prz += `${x+1}. ${result[x].name}\n`;
-                let embed = new Discord.RichEmbed().setColor(13632027).setDescription(`Znaleziono więcej niż jeden pasujący przystanek. Wybierz jeden odpisując numer lub \"stop\" aby zakończyc.\n\n${prz}`);
+                let embed = new bot.RichEmbed().setColor(13632027).setDescription(`Znaleziono więcej niż jeden pasujący przystanek. Wybierz jeden odpisując numer lub \"stop\" aby zakończyc.\n\n${prz}`);
                 
                 msg.channel.send(embed).then(async nmsg => {
                     let eventL;
@@ -103,26 +101,28 @@ module.exports = {
 
         else if(args[1] === 'add')
         {
-            msg.author.storage.ztmShorts[args[2]] = args[3];
-            msg.channel.send(setup.embgen(13632027, `Zapisano id ${args[3]} jako ${args[2]}`));
+            if(!/^[0-9]+$/.test(args[3])) {
+                msg.channel.send(bot.embgen(13632027, "ID must be number only!"));
+                return;
+            }
+            bot.db.Data[msg.author.id].ztmShorts = bot.db.Data[msg.author.id].ztmShorts || {};
+            bot.db.Data[msg.author.id].ztmShorts[args[2]] = args[3];
+            bot.db.save();
+            msg.channel.send(bot.embgen(13632027, `Zapisano id ${args[3]} jako ${args[2]}`));
         }
 
         else if(args[1] == 'subscribe')
         {
-         
-          if(config.settings.newsSubs.users.includes(msg.author.id)) {
-            config.settings.newsSubs.users = config.settings.newsSubs.users.filter(x => x != msg.author.id);
-            setup.updateConfig(config).then(e => {
-                msg.channel.send(new Discord.RichEmbed().setDescription("Zostałeś usunięty z listy subskrybentów"));
-            });
-        }
-        else {
-            config.settings.newsSubs.users.push(`${msg.author.id}`);
-            setup.updateConfig(config).then(e => {
-                msg.channel.send(new Discord.RichEmbed().setDescription("Zostałeś dodany do listy subskrybentów sytuacji komunikacyjnej ZTM!\nWszelkie zmiany sytuacji zostaną wysłane na PRIV!"));
-            });
-        }
+            let sub = (msg.channel.type == 'dm') ? msg.author.id : msg.channel.id;
+            let type = (msg.channel.type == 'dm') ? "users" : "channels";
+            if(bot.db.System.newsSubs[type].includes(sub)) {
+                bot.db.System.newsSubs[type] = bot.db.System.newsSubs[type].filter(x => x != sub);
+                msg.channel.send(bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
+            } else {
+                bot.db.System.newsSubs[type].push(sub);
+                msg.channel.send(bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
+            }
+            bot.db.save();
         }
     }
-
 }
