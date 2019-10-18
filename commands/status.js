@@ -11,8 +11,7 @@ module.exports = {
         {
             if(acceptable.includes(args[1].toUpperCase()))
             {
-                bot.db.System.presence = {name: args[2], type: args[1]};
-                bot.db.save();
+                bot.db.save(`System.presence`, {name: args[2], type: args[1]});
                 bot.user.setPresence({game: {name: args[2], type: args[1]}})
                 .then(() => msg.channel.send(bot.embgen(bot.sysColor, "Ustawiono status")));
             }

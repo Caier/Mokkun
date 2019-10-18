@@ -56,16 +56,14 @@ module.exports = {
 
             embed = new bot.RichEmbed().setColor("#007F00").setDescription(`Ustawiono przypomienie w <${applied}>\nWiadomość: \`${rem.content}\`\nKiedy: \`${new Date(rem.boomTime)}\``).setFooter(`id: ${rem.id}`);
             
-            bot.db.System.reminders.push(rem);
-            bot.db.save();
+            bot.db.save(`System.reminders`, (bot.db.get(`System.reminders`) || []).push(rem));
 
             msg.channel.send(embed);
         }
 
         else if(args[1] == "rem" && args[2] && /^[A-F\d]{8}-[A-F\d]{4}-4[A-F\d]{3}-[89AB][A-F\d]{3}-[A-F\d]{12}$/i.test(args[2]))
         {
-            bot.db.System.reminders = bot.db.System.reminders.filter(e => e.id != args[2]);
-            bot.db.save();
+            bot.db.save(`System.reminders`, (bot.db.get(`System.reminders`) || []).filter(e => e.id != args[2]));
             msg.channel.send(bot.embgen("#007F00", "Usunięto przypomnienie"));
         }
 
@@ -73,7 +71,7 @@ module.exports = {
         {
             let ewe = ``;
 
-            for(x of bot.db.System.reminders.filter(r => r.createdIn == msg.channel.id || r.where.channel == msg.guild && msg.guild.id || msg.channel.id))
+            for(x of (bot.db.get(`System.reminders`) || []).filter(r => r.createdIn == msg.channel.id || r.where.channel == msg.guild && msg.guild.id || msg.channel.id))
             {
                 ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime)}\`\n**w:** <${(x.where.isUser) ? "@" + x.where.channel : "#" + x.where.channel}>\n**id:** \`${x.id}\`\n\n`;
             }
