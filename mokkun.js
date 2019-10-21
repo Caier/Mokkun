@@ -11,6 +11,7 @@ class Mokkun extends Discord.Client {
         this.RichEmbed = Discord.RichEmbed;
         this.vars = Object.assign({}, process.env, vars);
         this._ensureVars();
+        this._ensureDirs();
         this.db = this._getDatabase(this.vars.DB_PATH);
         this.commands = this._loadCommands();
         this._start();
@@ -21,6 +22,13 @@ class Mokkun extends Discord.Client {
         let missingVars = reqVars.filter(env => typeof(this.vars[env]) === 'undefined')
         if(missingVars.length > 0)
             throw Error("Missing Required Env Vars: " + missingVars.join(", "));
+    }
+
+    _ensureDirs() {
+        let dirs = [path.join(__dirname, "files", "temp"),
+                    path.join(__dirname, "files", "global")];
+        for(var dir of dirs)
+            fs.ensureDirSync(dir);
     }
 
     _getDatabase(db_path) {
@@ -196,7 +204,7 @@ class Mokkun extends Discord.Client {
         }
 
         if(wrdcur) argtab.push(wrdcur);
-
+    
         return argtab;
     }
 
@@ -220,7 +228,7 @@ class Mokkun extends Discord.Client {
             if(temp.size != 0) fmsg = temp.last().id;
         }
         let cnt = 0;
-        msgs = msgs.filter(a => {cnt++; return cnt <= much})
+        msgs = msgs.filter(() => {cnt++; return cnt <= much})
         return msgs;
     }
 }
