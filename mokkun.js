@@ -170,7 +170,8 @@ class Mokkun extends Discord.Client {
             {
                 let embed = new this.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
                 let target = (x.where.isUser) ? "users" : "channels";
-                this[target].get(x.where.channel).send(embed);
+                let chan = this[target].get(x.where.channel);
+                chan && chan.send(embed);
                 rems = rems.filter(e => e.id != x.id);
                 this.db.save(`System.reminders`, rems);
             }
