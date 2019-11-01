@@ -134,7 +134,7 @@ module.exports = {
             
             body = await rp(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, options);
             
-            $(".contain-push > .thumbnail-preview > span a", body.toString()).each((i, elem) => {
+            $(".contain-push .thumbnail-preview > span a", body.toString()).each((i, elem) => {
                 imglinks.push("http:" + $(elem).attr('href'));
             });
             
@@ -146,7 +146,6 @@ module.exports = {
                 ret.push(await getSrc(encodeURI(imglinks[rand])));
                 imglinks.splice(rand, 1);
             }
-           
             return ret;
     },
 
