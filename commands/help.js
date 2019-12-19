@@ -10,7 +10,7 @@ module.exports = {
         else 
             if(bot.commands.has(args[1])) {
                 let cmd = bot.commands.get(args[1]);
-                msg.channel.send(bot.embgen(color, `**Komenda: **${args[1]} (${cmd.name})\n\n**Opis: **${cmd.description}\n\n**Uzywanie: **${cmd.usage.replace(/\$p/g, msg.prefix)}`));
+                msg.channel.send(bot.embgen(color, `**Komenda: **${args[1]} (${cmd.name})\n\n**Opis: **${cmd.description}\n\n**Używanie: **${cmd.usage.replace(/\$p/g, msg.prefix)}`));
             }
     }
 }
