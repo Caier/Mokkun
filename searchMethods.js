@@ -30,7 +30,7 @@ module.exports = {
 
             if(!tags) 
             {
-                for(var i = 0; i < much; i++)
+                for(let i = 0; i < much; i++)
                     ret.push(await getSrc(`http://rule34.xxx/index.php?page=post&s=random`));
                 return ret;
             }
@@ -120,7 +120,7 @@ module.exports = {
             
             if(!tags) 
             {
-                for(var i = 0; i < much; i++)
+                for(let i = 0; i < much; i++)
                     ret.push(await getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
                 return ret;
             }

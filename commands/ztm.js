@@ -17,12 +17,12 @@ module.exports = {
                 .setDescription((data.updated) ? 'updated stops.json' : '\u200b');
                 if(data.estimates.length === 0) this.addField('\u200b', "Brak danych o najbliższych odjazdach");
 
-                for (var i of data.estimates) {
+                for (let i of data.estimates) {
                     i.routeId = i.routeId.toString();
                     if(['4', '8'].includes(i.routeId[0]) && i.routeId.length >= 2) i.routeId = ((i.routeId[0] === '4') ? 'N' : 'T') + i.routeId.slice((i.routeId[1] === '0') ? 2 : 1);
                     
-                    for (var z in veh)
-                        for (var x in veh[z])
+                    for (let z in veh)
+                        for (let x in veh[z])
                             if (veh[z][x].numbers.includes(i.vehId))
                             {
                                 i.vehId = (veh[z][x].type != "") ? `${veh[z][x].type} - ${veh[z][x].model} [${i.vehId}]` : `${veh[z][x].model} [${i.vehId}]`;
@@ -61,7 +61,7 @@ module.exports = {
             else
             {
                 let prz = "";
-                for(var x = 0; x < result.length; x++)
+                for(let x = 0; x < result.length; x++)
                     prz += `${x+1}. ${result[x].name}\n`;
                 let embed = new bot.RichEmbed().setColor(13632027).setDescription(`Znaleziono więcej niż jeden pasujący przystanek. Wybierz jeden odpisując numer lub \"stop\" aby zakończyc.\n\n${prz}`);
                 
@@ -72,7 +72,7 @@ module.exports = {
                     bot.on("message", eventL = async rmsg => {
                         if(rmsg.author.id != msg.author.id || rmsg.channel.id != msg.channel.id) return;
 
-                        for(var x of result)
+                        for(let x of result)
                             if(rmsg.content == x.num || rmsg.content == "stop") {
                                 if(rmsg.content != "stop")
                                     new embedEstimates(x.res).send();
