@@ -36,8 +36,8 @@ exports.checkZTMNews = async function(source)                                   
         body = body.replace(/<[\S\s][^<>]*>/g, "");
         body = JSON.parse(body);
 
-        for (let x = 0; x < body.komunikaty.length; x++)
-            body.komunikaty[x].tresc = $.load(body.komunikaty[x].tresc).text();
+        // for (let x = 0; x < body.komunikaty.length; x++)
+        //     body.komunikaty[x].tresc = $.load(body.komunikaty[x].tresc).text();
 
         return body;
     }
