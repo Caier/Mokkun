@@ -84,7 +84,7 @@ exports.getSIP = async function(numerTras, arg2)                                
           numerTras = stop[i].stopShortName;
          else return;
 
-    body = await rp({uri: "http://87.98.237.99:88/delays?stopId=" + numerTras, encoding: null, rejectUnauthorized: false});
+    body = await rp({uri: "http://ckan2.multimediagdansk.pl/delays?stopId=" + numerTras, encoding: null, rejectUnauthorized: false});
     if(body == 0) return;
     body = JSON.parse(body.toString());
 

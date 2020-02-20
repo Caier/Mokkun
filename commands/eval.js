@@ -13,7 +13,7 @@ module.exports = {
         try {
             eval(code);
         } catch(err) {
-            msg.channel.send(`Nastąpił błąd podczas ewaluacji wyrażenia:\n\n` + err.stack, {split: true});
+            msg.channel.send('```js\nNastąpił błąd podczas ewaluacji wyrażenia:\n\n' + err.stack + '\n```', {split: true});
         }
     }
 }
