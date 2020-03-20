@@ -16,7 +16,7 @@ module.exports = {
             rem.createdAt = Date.now();
             rem.createdIn = msg.channel.id;
             rem.where = {};
-            rem.content = bot.getArgs(msg.content, msg.prefix, "|").slice(2);
+            rem.content = bot.getArgs(msg.content, msg.prefix, "|").pop();
 
             test = /((<@!?)|(<#))(?=[0-9]{18}(?=>$))/;
 
