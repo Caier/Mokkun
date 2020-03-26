@@ -7,11 +7,10 @@ module.exports = {
     cooldown: 30000,
     async execute(msg, args, bot)
     {
-        const [embgen, getArgs] = [bot.embgen, bot.getArgs];
-        args = getArgs(msg.content, msg.prefix, "|", 1);
+        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#006ffa";
 
-        msg.channel.send(embgen(color, `Zbieranie postów...`)).then(async msgn => 
+        msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => 
         {
             let imgs = (args[1] == '') ? await fromGB(null, args[2]) : (!args[1]) ? await fromGB() : (args[2]) ? await fromGB(args[1], args[2]) : await fromGB(args[1]); 
      
@@ -55,7 +54,7 @@ module.exports = {
                     bot.on("messageReactionAdd", eventL = async (react, user) => {
                         if(react.message.id != nmsg.id || user.id == bot.user.id) return;
                         let emoji = react.emoji.toString();
-                        react.remove(user.id);
+                        react.users.remove(user.id);
 
                         if(emoji == `⏮`) {
                             nmsg.edit(embed);
@@ -69,8 +68,8 @@ module.exports = {
                 })
             }
     
-            if(imgs == 0) msgn.edit(embgen(color, `**${msg.author.tag}** nie znaleziono!`));
-            else msgn.delete(100);
+            if(imgs == 0) msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            else msgn.delete({timeout: 150});
         });
     }
 }

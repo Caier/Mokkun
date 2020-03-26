@@ -75,7 +75,7 @@ module.exports = {
 
             for(x of (bot.db.get(`System.reminders`) || []).filter(r => r.createdIn == msg.channel.id || r.where.channel == msg.guild && msg.guild.id || msg.channel.id))
             {
-                ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime)}\`\n**w:** <${(x.where.isUser) ? "@" + x.where.channel : "#" + x.where.channel}>\n**id:** \`${x.id}\`\n\n`;
+                ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime).toLocaleString([], {timeZone: 'Europe/Warsaw'})}\`\n**w:** <${(x.where.isUser) ? "@" + x.where.channel : "#" + x.where.channel}>\n**id:** \`${x.id}\`\n\n`;
             }
 
             if(ewe.length < 1950)

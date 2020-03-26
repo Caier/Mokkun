@@ -15,7 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "cheerio": "*",
-    "discord.js": "^11.5.1",
+    "discord.js": "^12.x",
     "dotenv": "^8.1.0",
     "fs": "*",
     "fs-extra": "^8.1.0",
@@ -26,7 +26,7 @@
     "uuid": "^3.3.2"
   },
   "engines": {
-    "node": "^10.x",
+    "node": "^12.x",
     "npm": "*"
   }
 }
