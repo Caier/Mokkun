@@ -1,8 +1,8 @@
 const Discord = require("discord.js");
 const fs = require("fs-extra");
 const path = require("path");
-const ztm = require("./ztm");
 const isOnline = require('is-online');
+const loops = require('./util/loops');
 
 class Mokkun extends Discord.Client {
     constructor(vars = {}, color = "#FFFFFE") {
@@ -116,12 +116,7 @@ class Mokkun extends Discord.Client {
             msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale/serwerze!**`)).then(nmsg => this.setTimeout(() => nmsg.delete({timeout: 150}), 3000));
             return;
         }
-        // let cooldown = this._checkForCooldown(msg, args[0]);
-        // if(cooldown) {
-        //     msg.channel.send(this.embgen(this.sysColor, `Chwila bro, ta komenda jest chłodna.\nBędziesz mógł jej użyć za ${cooldown}`)).then(nmsg => this.setTimeout(() => nmsg.delete({timeout: 150}), 3000));
-        //     return;
-        // }
-
+        
         try {
             if(this.commands.has(args[0])) {
                 let cmd = this.commands.get(args[0]);
@@ -143,60 +138,9 @@ class Mokkun extends Discord.Client {
 
     async _loops() {
         if(!await isOnline({timeout: 500})) return;
-        this._newsletter();
-        this._reminders();
+        for(let loop in loops)
+            loops[loop](this);
     }
-
-    async _newsletter() {
-        let prevRes = (fs.existsSync(path.join(__dirname, this.db.get(`System.files.prevRes`)))) ? fs.readFileSync(path.join(__dirname, this.db.get(`System.files.prevRes`))) : "{}";
-
-        prevRes = JSON.parse(prevRes);
-        let newsSubs = this.db.get(`System.newsSubs`);
-
-        let news = await ztm.checkZTMNews();
-        
-        if(JSON.stringify(news.komunikaty) == JSON.stringify(prevRes.komunikaty) || JSON.stringify(news.komunikaty) == '[{"tytul":null,"tresc":null,"data_rozpoczecia":null,"data_zakonczenia":null}]') return;
-
-        for (let x of news.komunikaty)
-        {
-            let embed = new this.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
-            for(let c of newsSubs.users)
-                this.users.resolve(c).send(embed);
-            for(let c of newsSubs.channels)
-                this.channels.resolve(c).send(embed)
-        }
-
-        fs.writeFileSync(path.join(__dirname, this.db.get(`System.files.prevRes`) || "files/temp"), JSON.stringify(news));
-    }
-
-    async _reminders() {
-        let rems = this.db.get(`System.reminders`);
-
-        for(let x of rems)
-        {
-            if(x.boomTime - Date.now() <= 0)
-            {
-                let embed = new this.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
-                let target = (x.where.isUser) ? "users" : "channels";
-                let chan = this[target].resolve(x.where.channel);
-                chan && chan.send(embed);
-                rems = rems.filter(e => e.id != x.id);
-                this.db.save(`System.reminders`, rems);
-            }
-        }
-    }
-
-    // _checkForCooldown(msg, cmd) {
-    //     let coolTime = this.db.get(`Data.${msg.channel.id}.cooldown.${msg.author.id}.${cmd}`);
-    //     if(coolTime) {
-    //         let timeLeft = coolTime - Date.now();
-    //         if(timeLeft <= 0)
-    //             this.db.save(`Data.${msg.channel.id}.cooldown.${msg.author.id}`, undefined);
-    //         else
-    //             return timeLeft;
-    //     }
-    //     return false;
-    // }
 
     getArgs(content, prefix, splitter, freeargs, arrayExpected) {
         content = content.slice(prefix.length);

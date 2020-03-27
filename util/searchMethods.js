@@ -179,5 +179,29 @@ module.exports = {
             };
             
             return ret;
+    },
+
+    async fromPH(gay, tags, much) {
+        body = await rp(`https://www.pornhub.com/${gay ? 'gay/' : ''}video/search?search=${encodeURI(tags.replace(/ /g, '+'))}`, {encoding: null, rejectUnauthorized: false, headers: {"user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)  Chrome/41.0.2228.0 Safari/537.36"}})
+        .catch(err => {});
+        try {body = body.toString();}
+        catch (e) {return [];}
+        links = [];
+
+        $("#videoSearchResult div.img.fade.videoPreviewBg.fadeUp > a", body).each((i, elem) => {
+            links.push({
+                            "link": "https://www.pornhub.com" + $(elem).attr('href'),
+                            "title": $(elem).attr('title'),
+                            "thumb": $(elem).children('img').attr("data-thumb_url"),
+                            "duration": $(elem).parent().children('.marker-overlays').text().replace(/[ \nA-z]/g, "")
+                        });
+        });
+
+        much = (!much) ? 1 : (much > 5) ? 5 : much;
+
+        while(links.length > much)
+            links.splice(Math.floor(Math.random() * (links.length)), 1);
+        
+        return links;
     }
 }

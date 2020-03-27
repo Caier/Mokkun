@@ -1,4 +1,4 @@
-const { fromNH } = require("../searchMethods");
+const { fromNH } = require("../util/searchMethods");
 
 module.exports = {
     name: 'nh',
