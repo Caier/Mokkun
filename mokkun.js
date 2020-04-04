@@ -20,7 +20,7 @@ class Mokkun extends Discord.Client {
     }
 
     _ensureVars() {
-        let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
+        let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH", "SC_CLIENT_ID"];
         let missingVars = reqVars.filter(env => typeof(this.vars[env]) === 'undefined')
         if(missingVars.length > 0)
             throw Error("Missing Required Env Vars: " + missingVars.join(", "));
