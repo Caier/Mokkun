@@ -70,7 +70,7 @@ export class MusicQueue {
         let str;
         if(entry.type == 'yt') {
             str = await MokkunMusic.getYTStream(entry.videoInfo.url);
-            str.on('end', () => setTimeout(() => this._playNext(), 2000) && console.log('stream closed'));
+            str.on('end', () => setTimeout(() => this._playNext(), 2000));
         }
         (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str, {type: 'opus', highWaterMark: 1});
         this.playing?.dispatcher?.setFEC(true);
