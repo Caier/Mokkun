@@ -3,10 +3,12 @@ const fs = require("fs-extra");
 const path = require("path");
 const isOnline = require('is-online');
 const loops = require('./util/loops');
+const { MokkunMusic } = require('./util/music/out/MokkunMusic.js');
 
 class Mokkun extends Discord.Client {
     constructor(vars = {}, color = "#FFFFFE") {
         super();
+        this.music = new MokkunMusic();
         this.sysColor = color;
         this.RichEmbed = Discord.MessageEmbed;
         this.vars = Object.assign({}, process.env, vars);

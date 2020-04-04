@@ -2,7 +2,7 @@ const rp = require("request-promise");
 const fs = require("fs");
 const path = require("path");
 const $ = require('cheerio');
-const stopF = path.join(__dirname, 'files', 'global', "ZTMstops.json");
+const stopF = path.join(__dirname, '..', 'files', 'global', "ZTMstops.json");
 
 async function getStops(){
     async function updateStops(){
