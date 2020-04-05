@@ -101,10 +101,11 @@ export class MusicQueue {
     _announce(what: 'nextSong'|'addedToQueue'|'removed', entry?: MusicEntry, ret?: boolean) : void | MessageEmbed {
         if(!this.outChannel)
             throw Error('Announement channel is not specified');
-        let embed = new MessageEmbed().setColor([112, 0, 55]);
+        let embed = new MessageEmbed().setColor(entry?.type == 'sc' ? '#ff8800' : [112, 0, 55]);
         if(what == 'nextSong') {
             let pl = this.playing as MusicEntry;
             embed.setAuthor('Następny utwór 🎵')
+            .setColor(pl?.type == 'sc' ? '#ff8800' : [112, 0, 55])
             .setDescription(`**[${pl.videoInfo.name}](${pl.videoInfo.url})**`)
             .setThumbnail(pl.videoInfo.thumbnail)
             .addField("Kanał", pl.videoInfo.author.name, true)
@@ -132,7 +133,7 @@ export class MusicQueue {
             return embed;
         this.outChannel.send(embed);
     }
-
+    //zła pozycja przy playtop
     get milisLeft() {
         let len = (this.playing?.videoInfo.milis || 0) - (this.playing?.strTime || 0);
         for(let ent of this.queue.slice(0, -1))

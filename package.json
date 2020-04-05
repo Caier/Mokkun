@@ -15,7 +15,7 @@
   "author": "caier",
   "license": "ISC",
   "dependencies": {
-    "@caier/sc": "^1.0.1",
+    "@caier/sc": "^1.1.0",
     "@caier/yts": "^1.1.2",
     "@discordjs/opus": "^0.1.0",
     "@types/uuid": "^7.0.2",
