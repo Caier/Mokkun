@@ -4,23 +4,26 @@ const path = require("path");
 const isOnline = require('is-online');
 const loops = require('./util/loops');
 const { MokkunMusic } = require('./util/music/out/MokkunMusic.js');
+const { SafeEmbed } = require('./util/embed/out/SafeEmbed');
+const { LoggedError } = require('./util/errors/out/errors');
 
 class Mokkun extends Discord.Client {
     constructor(vars = {}, color = "#FFFFFE") {
         super();
         this.music = new MokkunMusic();
         this.sysColor = color;
-        this.RichEmbed = Discord.MessageEmbed;
+        this.RichEmbed = SafeEmbed;
         this.vars = Object.assign({}, process.env, vars);
         this._ensureVars();
         this._ensureDirs();
         this.db = this._getDatabase(this.vars.DB_PATH);
         this.commands = this._loadCommands();
         this._start();
+        this._handleLoggedErrors();
     }
 
     _ensureVars() {
-        let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH", "SC_CLIENT_ID"];
+        let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
         let missingVars = reqVars.filter(env => typeof(this.vars[env]) === 'undefined')
         if(missingVars.length > 0)
             throw Error("Missing Required Env Vars: " + missingVars.join(", "));
@@ -89,6 +92,13 @@ class Mokkun extends Discord.Client {
         this.on("shardDisconnected", () => this._reconnect());
         this.on("error", err => console.error("Websocket error: " + err.message));
         this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
+    }
+
+    _handleLoggedErrors() {
+        process.on('unhandledRejection', err => {
+            if(err instanceof LoggedError)
+                err.channel && err.channel.send(this.embgen(this.sysColor, `**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
+        });
     }
 
     _reconnect() {
@@ -164,7 +174,7 @@ class Mokkun extends Discord.Client {
     }
 
     embgen(color = Math.floor(Math.random() * 16777215), content) {
-        return new Discord.MessageEmbed().setColor(color).setDescription(content);
+        return new SafeEmbed().setColor(color).setDescription(content);
     }
 
     async fetchMsgs(msg, much, user, before) {
@@ -209,7 +219,8 @@ module.exports = Mokkun;
 
 function promiseRejectionHandler() {
     process.on("unhandledRejection", err => 
-        console.error("Unhandled Rejection: " + err.stack));
+        !err instanceof LoggedError && 
+            console.error("Unhandled Rejection: " + err.stack));
 }
 
 if(!module.parent) {

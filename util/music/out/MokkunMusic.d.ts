@@ -2,17 +2,18 @@
 import { TextChannel, MessageEmbed, Guild, GuildMember, StreamDispatcher } from 'discord.js';
 import VoiceConnection from 'discord.js/src/client/voice/VoiceConnection';
 import { VideoEntry } from '@caier/yts/lib/interfaces';
-import { SongEntry } from '@caier/sc/out/interfaces';
+import { TrackEntry } from '@caier/sc/out/interfaces';
+import { Readable } from 'stream';
 export declare class MusicEntry {
     id: string;
     addedOn: number;
     addedBy: GuildMember;
     queue: MusicQueue;
     type: "yt" | "sc";
-    videoInfo: VideoEntry | SongEntry;
+    videoInfo: VideoEntry | TrackEntry;
     dispatcher?: StreamDispatcher;
     constructor(opts: {
-        vid: VideoEntry | SongEntry;
+        vid: VideoEntry | TrackEntry;
         member: GuildMember;
         queue: MusicQueue;
         type: "yt" | "sc";
@@ -30,9 +31,9 @@ export declare class MusicQueue {
     outChannel?: TextChannel;
     addEntry(entry: MusicEntry, VoiceC: VoiceConnection, top: boolean): void;
     _playNext(): void;
-    play(entry: MusicEntry): Promise<void>;
-    _finish(): void;
-    set destTimer(timer: NodeJS.Timeout);
+    private play;
+    private _finish;
+    private set destTimer(value);
     _announce(what: 'nextSong' | 'addedToQueue' | 'removed', entry?: MusicEntry, ret?: boolean): void | MessageEmbed;
     get milisLeft(): number;
     get timeLeft(): string;
@@ -44,11 +45,10 @@ export declare class MusicQueue {
 }
 export declare class MokkunMusic {
     private queues;
-    constructor();
     getQueue(guild: Guild): MusicQueue;
     searchVideos(query: string): Promise<import("@caier/yts/out/interfaces").YTSResponse>;
     searchSC(query: string): Promise<import("@caier/sc/out/interfaces").SCResponse>;
-    static getYTStream(url: string): Promise<import("stream").Readable>;
+    static getYTStream(url: string): Promise<Readable>;
     destroyQueue(guildid: string): void;
 }
 //# sourceMappingURL=MokkunMusic.d.ts.map

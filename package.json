@@ -5,7 +5,8 @@
   "main": "mokkun.js",
   "scripts": {
     "start": "node mokkun.js & node uptime.js",
-    "buildmusic": "cd ./util/music & tsc"
+    "buildMusic": "cd ./util/music & tsc",
+    "buildEmb": "cd ./util/embed & tsc"
   },
   "keywords": [],
   "repository": {
@@ -15,15 +16,17 @@
   "author": "caier",
   "license": "ISC",
   "dependencies": {
-    "@caier/sc": "^1.1.2",
+    "@caier/sc": "^1.2.2",
     "@caier/yts": "^1.1.2",
     "@discordjs/opus": "^0.1.0",
+    "@types/node": "^13.13.2",
     "@types/uuid": "^7.0.2",
     "@types/ws": "^7.2.3",
     "cheerio": "*",
     "discord.js": "^12.x",
     "dotenv": "^8.1.0",
     "express": "^4.17.1",
+    "ffmpeg-static": "^4.1.1",
     "fs": "*",
     "fs-extra": "^8.1.0",
     "is-online": "^8.2.0",
@@ -31,7 +34,7 @@
     "request": "*",
     "request-promise": "*",
     "uuid": "^3.3.2",
-    "ytdl-core-discord": "^1.1.0"
+    "ytdl-core-discord": "^1.2.0"
   },
   "engines": {
     "node": "^12.x",
