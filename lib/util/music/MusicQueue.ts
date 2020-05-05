@@ -27,12 +27,12 @@ export class MusicQueue {
             this.announce('addedToQueue', entry);
     }
 
-    playNext() {
+    async playNext() {
         if(this.queue.length > 0) {
             if(this.playing)
                 this.history.push(this.playing);
             this.playing = this.queue.shift() as MusicEntry;
-            this.play(this.playing);
+            await this.play(this.playing);
             this.announce('nextSong');
         }
         else

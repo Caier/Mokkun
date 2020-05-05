@@ -133,15 +133,14 @@ class H {
     @register('przechodzi do następnego utworu', '`$pskip (ile skipnąć)`')
     static async skip(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         await H.assertVC(msg);
-        for(let i = 0; i < +args[1] || 1; i++)
-            if(queue.playing) {
-                msg.channel.send(H.emb('Skipped ⏩'));
-                queue.playNext();
-            } 
-            else {
-                msg.channel.send(H.emb('Nie ma czego skipować!'));
-                break;
-            }
+        if(!queue.playing) {
+            msg.channel.send(H.emb('Nie ma czego skipować!'));
+            return;
+        }
+        if(args[1] && !isNaN(+args[1]) && +args[1] > 0)
+            queue.queue.splice(0, (+args[1] >= queue.queue.length) ? queue.queue.length - 1 : +args[1]);
+        msg.channel.send(H.emb('Skipped ⏩'));
+        queue.playNext();
     }
 
     @register('wstrzymuje kolejkę', '`$ppause`')
