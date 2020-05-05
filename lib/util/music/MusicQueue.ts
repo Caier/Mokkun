@@ -67,7 +67,7 @@ export class MusicQueue {
         this.playing = null;
         this.destTimer = setTimeout(() => {
             if(!this.playing)
-                this.VoiceCon.disconnect(); 
+                this.VoiceCon?.disconnect(); 
         }, 600000);
     }
 
