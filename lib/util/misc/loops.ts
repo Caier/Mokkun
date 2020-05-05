@@ -1,13 +1,15 @@
-const ztm = require("../util/ztm");
 import fs from 'fs-extra';
 import path from 'path';
-import { Mokkun } from '../mokkun';
+import { Mokkun } from '../../mokkun';
+import { TextChannel } from 'discord.js';
+import files from './files';
 
 export async function _newsletter(bot: Mokkun) {
-    let prevRes = (fs.existsSync(path.join(__dirname, '..', bot.db.get(`System.files.prevRes`)))) ? fs.readFileSync(path.join(__dirname, '..', bot.db.get(`System.files.prevRes`))) : "{}";
+    if(bot.loopExecCount % 15 != 0) return;
+    let prevRes: any = (fs.existsSync(files.prevRes)) ? fs.readFileSync(files.prevRes).toString() : "{}";
     prevRes = JSON.parse(prevRes);
     let newsSubs = bot.db.get(`System.newsSubs`);
-    let news = await ztm.checkZTMNews();
+    let news = await require('./ztm.js').checkZTMNews();
     
     if(JSON.stringify(news.komunikaty) == JSON.stringify(prevRes.komunikaty) || JSON.stringify(news.komunikaty) == '[{"tytul":null,"tresc":null,"data_rozpoczecia":null,"data_zakonczenia":null}]') return;
     for (let x of news.komunikaty)
@@ -16,9 +18,9 @@ export async function _newsletter(bot: Mokkun) {
         for(let c of newsSubs.users)
             bot.users.resolve(c).send(embed);
         for(let c of newsSubs.channels)
-            bot.channels.resolve(c).send(embed)
+            (bot.channels.resolve(c) as TextChannel).send(embed)
     }
-    fs.writeFileSync(path.join(__dirname, '..', bot.db.get(`System.files.prevRes`) || "files/temp"), JSON.stringify(news));
+    fs.writeFileSync(files.prevRes, JSON.stringify(news));
 }
 
 export async function _reminders(bot: Mokkun) {
@@ -29,9 +31,9 @@ export async function _reminders(bot: Mokkun) {
         {
             let embed = new bot.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
             let target = (x.where.isUser) ? "users" : "channels";
-            let chan = bot[target].resolve(x.where.channel);
+            let chan = (bot as any)[target].resolve(x.where.channel);
             chan && chan.send(embed);
-            rems = rems.filter(e => e.id != x.id);
+            rems = rems.filter((e: any) => e.id != x.id);
             bot.db.save(`System.reminders`, rems);
         }
     }

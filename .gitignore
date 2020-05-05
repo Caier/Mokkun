@@ -94,5 +94,11 @@ typings/
 # database excluding
 *.db
 
+# fuck package lock
+package-lock.json
+
 # mokkun specific
 ZTMstops.json
+files/temp/*
+build/
+prevRes
