@@ -131,8 +131,8 @@ class H {
     }
 
     @register('przechodzi do następnego utworu', '`$pskip (ile skipnąć)`')
-    static skip(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.assertVC(msg);
+    static async skip(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.assertVC(msg);
         for(let i = 0; i < +args[1] || 1; i++)
             if(queue.playing) {
                 msg.channel.send(H.emb('Skipped ⏩'));
@@ -145,8 +145,8 @@ class H {
     }
 
     @register('wstrzymuje kolejkę', '`$ppause`')
-    static pause(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.assertVC(msg);
+    static async pause(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.assertVC(msg);
         if(queue.playing) {
             queue.pause();
             msg.channel.send(H.emb('Zapauzowano ⏸'));
