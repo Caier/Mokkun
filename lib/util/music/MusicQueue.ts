@@ -1,19 +1,45 @@
 import { MusicEntry } from "./MusicEntry";
-import { VoiceConnection, TextChannel } from "discord.js";
+import { VoiceConnection, TextChannel, BaseClient, Guild } from "discord.js";
 import { MokkunMusic } from "./MokkunMusic";
 import { TrackEntry } from "@caier/sc/out/interfaces";
 import { Readable } from "stream";
 import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
 import { SafeEmbed } from "../embed/SafeEmbed";
+import { IMusicHistory } from "../interfaces/IMusicHistory";
 
-export class MusicQueue {
-    private timer?: NodeJS.Timeout;
+export class MusicQueue extends BaseClient {
+    private idleTime = 0;
+    private watchInterval = 1000;
+    private tryingToPlay = false;
+    private readonly maxIdle = 600000;
+    private readonly master: MokkunMusic;
+    private readonly maxHistory = 200;
     queue: MusicEntry[] = [];
-    history: MusicEntry[] = [];
+    history: IMusicHistory[];
     VoiceCon: VoiceConnection;
     playing: MusicEntry | null = null;
     outChannel?: TextChannel;
+
+    constructor(master: MokkunMusic, guild: Guild) { 
+        super();
+        this.master = master;
+        this.history = (this.master.bot.db.Data?.[guild.id]?.musicHistory || []) as IMusicHistory[];
+        this.watch();
+    }
+
+    private watch() {
+        this.setInterval(() => {
+            if(this.status == 'idle' && this.idleTime >= this.maxIdle)
+                this.destroy();
+            else if(this.status == 'idle' && this.queue.length > 0)
+                this.playNext();
+            else if(this.status == 'idle')
+                this.idleTime += this.watchInterval;
+            else
+                this.idleTime = 0;
+        }, this.watchInterval);
+    }
 
     addEntry(entry: MusicEntry, VoiceC: VoiceConnection, top: boolean) {
         this.VoiceCon = VoiceC;
@@ -29,19 +55,31 @@ export class MusicQueue {
 
     async playNext() {
         if(this.queue.length > 0) {
-            if(this.playing)
-                this.history.push(this.playing);
+            this.shiftToHistory();
             this.playing = this.queue.shift() as MusicEntry;
-            await this.play(this.playing);
             this.announce('nextSong');
+            await this.play(this.playing);
         }
         else
             this.finish();
     }
 
+    private shiftToHistory() {
+        if(!this.playing) return;
+        this.history.push({
+            name: this.playing.videoInfo.name,
+            url: this.playing.videoInfo.url,
+            author: this.playing.videoInfo.author.name,
+            type: this.playing.type
+        });
+        this.playing = null;
+    }
+
     private async play(entry: MusicEntry, retries = 0) {
         if(this.VoiceCon.status != 0) 
             throw Error('VoiceConnection is not ready');
+        this.tryingToPlay = true;
+        this.VoiceCon?.on('disconnect', () => this.finish());
         let str;
         if(entry.type == 'yt')
             str = await MokkunMusic.getYTStream(entry.videoInfo.url);
@@ -53,27 +91,16 @@ export class MusicQueue {
         if(!this.playing?.dispatcher) {
             (<Readable> str)?.destroy();
             if(retries > 2) {
-                this.playNext();
+                this.tryingToPlay = false;
                 throw new LoggedError(this.outChannel, "Cannot attach StreamDispatcher");
             }
             await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(), 1000));
-        }
+        } else this.tryingToPlay = false;
     }
 
     private finish() {
-        this.playing?.dispatcher?.pause?.();
-        if(this.playing)
-            this.history.push(this.playing);
-        this.playing = null;
-        this.destTimer = setTimeout(() => {
-            if(!this.playing)
-                this.VoiceCon?.disconnect(); 
-        }, 600000);
-    }
-
-    private set destTimer(timer: NodeJS.Timeout) {
-        this.timer && clearTimeout(this.timer);
-        this.timer = timer;
+        this.playing?.dispatcher?.destroy();
+        this.shiftToHistory();
     }
 
     announce(what: 'nextSong'|'addedToQueue'|'removed', entry?: MusicEntry, ret?: boolean) : void | SafeEmbed {
@@ -157,18 +184,30 @@ export class MusicQueue {
         return wrong;
     }
 
-    setOutChan(chan: TextChannel) : MusicQueue {
+    disconnect() {
+        this.VoiceCon?.disconnect();
+        this.finish();
+    }
+
+    setOutChan(chan: TextChannel) {
         this.outChannel = chan;
         return this;
     }
 
     get status() {
-        return this.playing?.dispatcher?.paused ? 'paused' : this.playing?.dispatcher ? 'playing' : 'idle';
+        return this.playing?.dispatcher?.paused ? 'paused' 
+        : this.playing?.dispatcher ? 'playing' 
+        : this.VoiceCon?.status != 0 ? 'disconnected' 
+        : this.tryingToPlay ? 'busy' 
+        : 'idle';
     }
 
     destroy() {
         this.playing?.dispatcher?.destroy();
+        this.disconnect();
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(this.maxHistory));
+        super.destroy();
         for(let prop in this)
-            this[prop] = undefined;
+            delete this[prop];
     }
 }

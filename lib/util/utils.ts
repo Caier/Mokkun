@@ -1,4 +1,4 @@
-import Discord from 'discord.js';
+import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 
@@ -83,6 +83,37 @@ namespace Utils {
      */
     export function rand(min: number, max: number) {
         return Math.floor(Math.random() * (max - min + 1) + min);
+    }
+
+    /**
+     * Function used to create a multipage embed message from an array of MessageEmbeds
+     * @param channel Channel to send the embed to
+     * @param pages Array of MessageEmbeds
+     * @param opts (optional) object with additional options
+     * @param opts.triggers Who should trigger the collector (Array of UserIDs)
+     * @param opts.emojis Which emojis to use as reactions (Default: ['⏪', '◀', '▶', '⏩'])
+     * @param opts.collOpts Options of the reactionCollector
+     * @returns Reaction collector
+     */
+    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[], opts?: {triggers?: string[], emojis?: string[], collOpts?: CollectorOptions}) {
+        let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
+        let nmsg = await channel.send(pages[0]);
+        let curPage = 0;
+        for(let em of emojis.filter(Boolean))
+            await nmsg.react(em);
+        let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot &&
+            emojis.includes(react.emoji.name) && (!opts?.triggers || opts?.triggers.includes(user.id)), opts?.collOpts || {time: 120000});
+        coll.on('collect', (react, user) => {
+            if(channel instanceof TextChannel) react.users.remove(user.id);
+            switch(react.emoji.name) {
+                case emojis[0]: (curPage = 0) || nmsg.edit(pages[0]); break;
+                case emojis[1]: curPage > 0 && nmsg.edit(pages[--curPage]); break;
+                case emojis[2]: curPage < pages.length - 1 && nmsg.edit(pages[++curPage]); break;
+                case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(pages[pages.length - 1]); break;
+                case emojis[4]: nmsg.delete({timeout: 150});
+            }
+        });
+        return coll;
     }
 }
 

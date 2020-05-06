@@ -8,6 +8,9 @@ import { MusicEntry } from "../../util/music/MusicEntry";
 import { TrackEntry } from "@caier/sc/out/interfaces";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { SilentError } from "../../util/errors/errors";
+import Utils from "../../util/utils";
+
+export = H;
 
 @notdm
 @extend(H.modify)
@@ -26,17 +29,18 @@ class H {
     static notFound = (msg: c.m) => H.whatToPlay(msg, "Nie znaleziono");
     static whatToSearch = (msg: c.m) => H.whatToPlay(msg, "Co chcesz wyszukać?");
 
-    static async assertVC(msg: c.m) {
+    static async assertVC(msg: c.m, ret = false) {
         if(!msg?.member?.voice?.channel) {
             msg.channel.send(H.emb('Aby korzystać z funkcji muzycznych, wejdź na kanał głosowy'));
             throw new SilentError("Member not in VC");
         }
-        return await msg.member.voice.channel.join();
+        if(ret)
+            return await msg.member.voice.channel.join();
     }
 
     @register('dodaje do kolejki (z YT) lub wznawia odtwarzanie kolejki', '`$pplay (co odtworzyć)')
     static async play(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false, fromSC = false) {
-        let VC = await H.assertVC(msg);
+        let VC = await H.assertVC(msg, true);
         if(!args[1] && queue?.playing?.dispatcher?.paused) {
             queue.resume();
             msg.channel.send(H.emb('Wznowiono odtwarzanie ⏯'));
@@ -79,7 +83,7 @@ class H {
             H.whatToSearch(msg);
             return;
         }
-        let VC = await H.assertVC(msg);
+        let VC = await H.assertVC(msg, true);
         let embed = new bot.RichEmbed().setColor(fromSC ? H.scColor : H.embColor as any).setAuthor("Wyszukanie 🔍").setDescription('\u200b');
         let entries = fromSC ? (await sc.search(args[1]))?.tracks : (await yts(args[1]))?.videos;
         if(!entries || entries?.length == 0) {
@@ -169,13 +173,16 @@ class H {
         if(queue.queue.length > 0 || queue.playing) {
             let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor("Kolejka");
             if(queue.playing)
-                emb.addField("Teraz odtwarzane:", `${queue.playing.dispatcher.paused ? '⏸' : '▶️'} **${queue.playing.videoInfo.name}**` + '\n' + 'Pozostało: ' + queue.playing.timeLeft);
+                emb.addField("Teraz odtwarzane:", `${queue.playing.dispatcher.paused ? '⏸' : '▶️'} [**${queue.playing.videoInfo.name}**](${queue.playing.videoInfo.url})` + '\n' + 'Pozostało: ' + queue.playing.timeLeft);
             if(queue.queue.length > 0) {
                 emb.addField('\u200b', '**Następnie:**');
-                let inc = 1;
-                for(let x of queue.queue) {
-                    emb.addField(`${inc++}.`, x.videoInfo.name);
-                }
+                queue.queue.forEach((x, i) =>
+                    emb.addField(`Kanał: ${x.videoInfo.author.name}`, `${++i}. [${x.videoInfo.name}](${x.videoInfo.url})`));
+                let embs = emb.populateEmbeds();
+                if(embs.length > 0)
+                    Utils.createPageSelector(msg.channel as TextChannel, embs, {triggers: [msg.author.id]});
+                else
+                    msg.channel.send(emb);
             }
             msg.channel.send(emb);
         }
@@ -201,6 +208,39 @@ class H {
         bot.music.destroyQueue(msg.guild);
         msg.channel.send(H.emb('Zniszczono kolejkę'));
     }
-}
 
-export = H;
+    @aliases('his')
+    @register('wyświetla historię odtwarzania serwera', '`$phistory`')
+    static history(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        if(queue?.history?.length == 0)
+            H.whatToPlay(msg, "Historia odtwarzania jest pusta!");
+        else {
+            let emb = new SafeEmbed().setColor(H.embColor as any).setAuthor("Historia");
+            [...queue.history].reverse().forEach((v, i) => {
+                emb.addField(`Kanał: **${v.author}**`, `${i+1}. **[${v.name}](${v.url})**`);
+            });
+            let embs = emb.populateEmbeds();
+            if(embs.length > 0)
+                Utils.createPageSelector(msg.channel as TextChannel, embs, {triggers: [msg.author.id]});
+            else 
+                msg.channel.send(emb);
+        }
+    }
+
+    @aliases('clhis')
+    @register('czyści historię odtwarzania', '`$pclearHistory`')
+    static clearHistory(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        queue.history = [];
+        msg.channel.send(H.emb('Wyczyszczono historię odtwarzania'));
+    }
+
+    // @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę', '`$prepeat (pozycja w historii)`')
+    // static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+    //     await H.assertVC(msg);
+    //     if(!args[1]) {
+    //         let saved = queue.history[queue.history.length - 1];
+    //         H.play(msg, ['play', saved.name])
+    //     }
+    //     args = bot.newArgs(msg, {arrayExpected: true});
+    // }
+}

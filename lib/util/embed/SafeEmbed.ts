@@ -1,7 +1,7 @@
 import { MessageEmbed, StringResolvable, Util, MessageEmbedOptions, EmbedFieldData, EmbedField } from 'discord.js';
 
 export class SafeEmbed extends MessageEmbed {
-    overFields : EmbedField[] = [];
+    overFields: EmbedField[] = [];
 
     static max = {
         author: 256,
@@ -23,6 +23,16 @@ export class SafeEmbed extends MessageEmbed {
             this.fields = this.fields.slice(0, SafeEmbed.max.fields);
             this.overFields.push(...over);
         }
+    }
+
+    populateEmbeds(embs: SafeEmbed[] = [], level = 1) : SafeEmbed[] {
+        if(this.overFields.length == 0)
+            return embs;
+        if(embs.length == 0)
+            return this.populateEmbeds([this.setFooter(`Strona 1/${Math.ceil(1 + this.overFields.length / SafeEmbed.max.fields)}`)], ++level);
+        embs.push(new SafeEmbed(this).setFooter(`Strona ${level}/${embs.length + Math.ceil(this.overFields.length / SafeEmbed.max.fields)}`));
+        embs[embs.length - 1].fields = this.overFields.splice(0, SafeEmbed.max.fields);
+        return this.populateEmbeds(embs, ++level);
     }
 
     setAuthor(name: StringResolvable, iconURL?: string, url?: string) {

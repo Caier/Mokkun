@@ -15,12 +15,12 @@
   "author": "caier",
   "license": "ISC",
   "dependencies": {
-    "@types/fs-extra": "^8.1.0",
-    "@types/request-promise": "^4.1.46",
-    "@caier/sc": "^1.2.2",
+    "@caier/sc": "^1.2.3",
     "@caier/yts": "^1.1.2",
     "@discordjs/opus": "^0.1.0",
+    "@types/fs-extra": "^8.1.0",
     "@types/node": "^13.13.2",
+    "@types/request-promise": "^4.1.46",
     "@types/uuid": "^7.0.2",
     "@types/ws": "^7.2.3",
     "cheerio": "*",
@@ -34,9 +34,9 @@
     "nodeJs-zip": "^1.0.4",
     "request": "*",
     "request-promise": "*",
+    "typescript": "^3.8.3",
     "uuid": "^3.3.2",
-    "ytdl-core-discord": "^1.2.0",
-    "typescript": "^3.8.3"
+    "ytdl-core-discord": "^1.2.0"
   },
   "engines": {
     "node": "^12.x",

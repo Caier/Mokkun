@@ -20,7 +20,7 @@ export class Mokkun extends Discord.Client {
     private cmdDir = path.join(__dirname, 'commands');
     private loopInterval = 3000;
     loopExecCount = 0;
-    music = new MokkunMusic();
+    music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
     sysColor = '#FFFFFE';
     commands: Discord.Collection<string, ICommand>;
