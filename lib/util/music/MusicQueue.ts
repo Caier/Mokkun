@@ -205,7 +205,7 @@ export class MusicQueue extends BaseClient {
     destroy() {
         this.playing?.dispatcher?.destroy();
         this.disconnect();
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(this.maxHistory));
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(-this.maxHistory));
         super.destroy();
         for(let prop in this)
             delete this[prop];
