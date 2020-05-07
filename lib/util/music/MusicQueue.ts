@@ -31,7 +31,7 @@ export class MusicQueue extends BaseClient {
     private watch() {
         this.setInterval(() => {
             if(this.status == 'idle' && this.idleTime >= this.maxIdle)
-                this.destroy();
+                this.master.destroyQueue(this.outChannel.guild);
             else if(this.status == 'idle' && this.queue.length > 0)
                 this.playNext();
             else if(this.status == 'idle')
