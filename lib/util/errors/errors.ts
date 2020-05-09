@@ -1,9 +1,9 @@
-import { TextChannel } from 'discord.js';
+import { TextChannel, DMChannel } from 'discord.js';
 
 export class LoggedError extends Error {
-    public channel?: TextChannel;
+    public channel?: TextChannel | DMChannel;
 
-    constructor(channel?: TextChannel, message?: string) { 
+    constructor(channel?: TextChannel | DMChannel, message?: string) { 
         super(message);
         this.channel = channel;
     }
