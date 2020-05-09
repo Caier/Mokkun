@@ -86,7 +86,7 @@ export class MusicQueue extends BaseClient {
             this.VoiceCon?.on('disconnect', () => this.finish());
             let str;
             if(entry.type == 'yt')
-                str = await MokkunMusic.getYTStream(entry.videoInfo.url);
+                str = await MokkunMusic.getYTStream(entry.videoInfo.url, this.outChannel);
             else if(entry.type == 'sc')
                 str = await sc.download((entry.videoInfo as TrackEntry).id, true);
             (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
