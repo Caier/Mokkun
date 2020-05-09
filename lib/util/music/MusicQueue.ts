@@ -41,8 +41,11 @@ export class MusicQueue extends BaseClient {
         }, this.watchInterval);
     }
 
-    addEntry(entry: MusicEntry, VoiceC: VoiceConnection, top: boolean) {
+    setVC(VoiceC: VoiceConnection) {
         this.VoiceCon = VoiceC;
+    }
+
+    addEntry(entry: MusicEntry, top: boolean) {
         if(top)
             this.queue.unshift(entry);
         else
@@ -76,26 +79,31 @@ export class MusicQueue extends BaseClient {
     }
 
     private async play(entry: MusicEntry, retries = 0) {
-        if(this.VoiceCon.status != 0) 
-            throw Error('VoiceConnection is not ready');
-        this.tryingToPlay = true;
-        this.VoiceCon?.on('disconnect', () => this.finish());
-        let str;
-        if(entry.type == 'yt')
-            str = await MokkunMusic.getYTStream(entry.videoInfo.url);
-        else if(entry.type == 'sc')
-            str = await sc.download((entry.videoInfo as TrackEntry).id, true);
-        (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
-        (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str as Readable, {type: 'opus', highWaterMark: 1});
-        this.playing?.dispatcher?.setFEC(true);
-        if(!this.playing?.dispatcher) {
-            (<Readable> str)?.destroy();
-            if(retries > 2) {
-                this.tryingToPlay = false;
-                throw new LoggedError(this.outChannel, "Cannot attach StreamDispatcher");
-            }
-            await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(), 1000));
-        } else this.tryingToPlay = false;
+        try {
+            if(this.VoiceCon.status != 0) 
+                throw Error('VoiceConnection is not ready');
+            this.tryingToPlay = true;
+            this.VoiceCon?.on('disconnect', () => this.finish());
+            let str;
+            if(entry.type == 'yt')
+                str = await MokkunMusic.getYTStream(entry.videoInfo.url);
+            else if(entry.type == 'sc')
+                str = await sc.download((entry.videoInfo as TrackEntry).id, true);
+            (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
+            (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str as Readable, {type: 'opus', highWaterMark: 1});
+            this.playing?.dispatcher?.setFEC(true);
+            if(!this.playing?.dispatcher) {
+                (<Readable> str)?.destroy();
+                if(retries > 2) {
+                    this.tryingToPlay = false;
+                    throw new LoggedError(this.outChannel, "Cannot attach StreamDispatcher");
+                }
+                await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(), 1000));
+            } else this.tryingToPlay = false;
+        }
+        catch(e) {
+            throw new LoggedError(this.outChannel, e.message);
+        }
     }
 
     private finish() {

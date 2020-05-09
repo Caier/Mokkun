@@ -29,18 +29,18 @@ class H {
     static notFound = (msg: c.m) => H.whatToPlay(msg, "Nie znaleziono");
     static whatToSearch = (msg: c.m) => H.whatToPlay(msg, "Co chcesz wyszukać?");
 
-    static async assertVC(msg: c.m, ret = false) {
+    static async assertVC(msg: c.m, queue?: MusicQueue) {
         if(!msg?.member?.voice?.channel) {
             msg.channel.send(H.emb('Aby korzystać z funkcji muzycznych, wejdź na kanał głosowy'));
             throw new SilentError("Member not in VC");
         }
-        if(ret)
-            return await msg.member.voice.channel.join();
+        if(queue)
+            queue.setVC(await msg.member.voice.channel.join());
     }
 
     @register('dodaje do kolejki (z YT) lub wznawia odtwarzanie kolejki', '`$pplay (co odtworzyć)')
     static async play(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false, fromSC = false) {
-        let VC = await H.assertVC(msg, true);
+        await H.assertVC(msg, queue);
         if(!args[1] && queue?.playing?.dispatcher?.paused) {
             queue.resume();
             msg.channel.send(H.emb('Wznowiono odtwarzanie ⏯'));
@@ -55,7 +55,7 @@ class H {
             H.notFound(msg);
             return;
         }
-        queue.addEntry(new MusicEntry({vid: vid, member: msg.member, queue: queue, type: fromSC ? 'sc' : 'yt'}), VC, top);
+        queue.addEntry(new MusicEntry({vid: vid, member: msg.member, queue: queue, type: fromSC ? 'sc' : 'yt'}), top);
     }
 
     @aliases('top')
@@ -83,7 +83,7 @@ class H {
             H.whatToSearch(msg);
             return;
         }
-        let VC = await H.assertVC(msg, true);
+        await H.assertVC(msg, queue);
         let embed = new bot.RichEmbed().setColor(fromSC ? H.scColor : H.embColor as any).setAuthor("Wyszukanie 🔍").setDescription('\u200b');
         let entries = fromSC ? (await sc.search(args[1]))?.tracks : (await yts(args[1]))?.videos;
         if(!entries || entries?.length == 0) {
@@ -102,7 +102,7 @@ class H {
                 if(rmsg.author.id != msg.author.id || rmsg.channel.id != msg.channel.id) return;
 
                 if(entries[+rmsg.content - 1]) {
-                    queue.addEntry(new MusicEntry({vid: entries[+rmsg.content - 1], member: msg.member, queue: queue, type: fromSC ? "sc" : "yt"}), VC, top);
+                    queue.addEntry(new MusicEntry({vid: entries[+rmsg.content - 1], member: msg.member, queue: queue, type: fromSC ? "sc" : "yt"}), top);
                     rmsg.content = "stop";
                 }
                 if(rmsg.content == 'stop') {
@@ -183,8 +183,7 @@ class H {
                     Utils.createPageSelector(msg.channel as TextChannel, embs, {triggers: [msg.author.id]});
                 else
                     msg.channel.send(emb);
-            }
-            msg.channel.send(emb);
+            } else msg.channel.send(emb);
         }
         else
             msg.channel.send(H.emb('Kolejka jest pusta'));
