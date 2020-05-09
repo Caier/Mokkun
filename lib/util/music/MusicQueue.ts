@@ -45,6 +45,7 @@ export class MusicQueue extends BaseClient {
 
     setVC(VoiceC: VoiceConnection) {
         this.VoiceCon = VoiceC;
+        this.VoiceCon?.on('disconnect', () => this.finish());
     }
 
     addEntry(entry: MusicEntry | MusicEntry[], top: boolean) {
@@ -84,7 +85,6 @@ export class MusicQueue extends BaseClient {
             if(this.VoiceCon?.status != 0) 
                 throw Error('VoiceConnection is not ready');
             this.tryingToPlay = true;
-            this.VoiceCon?.on('disconnect', () => this.finish());
             let str;
             if(entry.type == 'yt')
                 str = await ytdl(entry.videoInfo.url, {quality: 'highestaudio', highWaterMark: 1<<25});
