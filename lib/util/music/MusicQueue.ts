@@ -5,8 +5,10 @@ import { TrackEntry } from "@caier/sc/out/interfaces";
 import { Readable } from "stream";
 import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
+import ytdl from 'ytdl-core-discord';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
+import { isArray } from "util";
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
@@ -30,11 +32,11 @@ export class MusicQueue extends BaseClient {
 
     private watch() {
         this.setInterval(() => {
-            if(this.status == 'idle' && this.idleTime >= this.maxIdle)
+            if(this.idleTime >= this.maxIdle)
                 this.master.destroyQueue(this.outChannel.guild);
             else if(this.status == 'idle' && this.queue.length > 0)
                 this.playNext();
-            else if(this.status == 'idle')
+            else if(this.status == 'idle' || this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length == 0)
                 this.idleTime += this.watchInterval;
             else
                 this.idleTime = 0;
@@ -45,15 +47,19 @@ export class MusicQueue extends BaseClient {
         this.VoiceCon = VoiceC;
     }
 
-    addEntry(entry: MusicEntry, top: boolean) {
+    addEntry(entry: MusicEntry | MusicEntry[], top: boolean) {
+        if(!isArray(entry))
+            entry = [entry];
         if(top)
-            this.queue.unshift(entry);
+            this.queue.unshift(...entry);
         else
-            this.queue.push(entry);
+            this.queue.push(...entry);
         if(!this.playing)
             this.playNext();
-        else
-            this.announce('addedToQueue', entry);
+        else if(entry.length == 1)
+            this.announce('addedToQueue', entry[0]);
+        if(entry.length > 1)
+            this.announce('addedMultiple', entry as any);
     }
 
     async playNext() {
@@ -69,28 +75,23 @@ export class MusicQueue extends BaseClient {
 
     private shiftToHistory() {
         if(!this.playing) return;
-        this.history.push({
-            name: this.playing.videoInfo.name,
-            url: this.playing.videoInfo.url,
-            author: this.playing.videoInfo.author.name,
-            type: this.playing.type
-        });
+        this.history.push(this.playing.toJSON());
         this.playing = null;
     }
 
     private async play(entry: MusicEntry, retries = 0) {
         try {
-            if(this.VoiceCon.status != 0) 
+            if(this.VoiceCon?.status != 0) 
                 throw Error('VoiceConnection is not ready');
             this.tryingToPlay = true;
             this.VoiceCon?.on('disconnect', () => this.finish());
             let str;
             if(entry.type == 'yt')
-                str = await MokkunMusic.getYTStream(entry.videoInfo.url, this.outChannel);
+                str = await ytdl(entry.videoInfo.url, {quality: 'highestaudio', highWaterMark: 1<<25});
             else if(entry.type == 'sc')
                 str = await sc.download((entry.videoInfo as TrackEntry).id, true);
             (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
-            (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str as Readable, {type: 'opus', highWaterMark: 1});
+            (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str as Readable, {type: 'opus', highWaterMark: 12});
             this.playing?.dispatcher?.setFEC(true);
             if(!this.playing?.dispatcher) {
                 (<Readable> str)?.destroy();
@@ -102,6 +103,7 @@ export class MusicQueue extends BaseClient {
             } else this.tryingToPlay = false;
         }
         catch(e) {
+            this.tryingToPlay = false;
             throw new LoggedError(this.outChannel, e.message);
         }
     }
@@ -111,7 +113,7 @@ export class MusicQueue extends BaseClient {
         this.shiftToHistory();
     }
 
-    announce(what: 'nextSong'|'addedToQueue'|'removed', entry?: MusicEntry, ret?: boolean) : void | SafeEmbed {
+    announce(what: 'nextSong'|'addedToQueue'|'removed'|'addedMultiple', entry?: MusicEntry, ret?: boolean) : void | SafeEmbed {
         if(!this.outChannel)
             throw Error('Announement channel is not specified');
         let embed = new SafeEmbed().setColor(entry?.type == 'sc' ? '#ff8800' : [112, 0, 55]);
@@ -143,6 +145,8 @@ export class MusicQueue extends BaseClient {
             .setDescription(`**[${entry.videoInfo.name}](${entry.videoInfo.url})**`)
             .setThumbnail(entry.videoInfo.thumbnail)
         }
+        else if(what == 'addedMultiple')
+            embed.setAuthor(`Dodano ${(entry as any).length} utworów do kolejki`);
         if(ret)
             return embed;
         this.outChannel.send(embed);
@@ -184,7 +188,7 @@ export class MusicQueue extends BaseClient {
         }
         for(let entry of toRemove)
             removed.push(this.queue.splice(this.queue.findIndex(v => v.id == entry.id), 1)[0]);
-        if(this.queue.length == 0)
+        if(this.queue.length == 0 && removed.length > 0)
             this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor('Wyczyszczono kolejkę'));
         else
             removed.forEach(v => this.announce('removed', v));

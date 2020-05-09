@@ -1,6 +1,7 @@
+import { TrackEntry } from "@caier/sc/lib/interfaces";
+import { VideoEntry } from "@caier/yts/lib/interfaces";
+
 export interface IMusicHistory {
-    name: string
-    url: string
-    author: string
-    type: 'yt'|'sc'
+    type: 'yt'|'sc',
+    videoInfo: TrackEntry | VideoEntry
 }

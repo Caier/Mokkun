@@ -216,7 +216,7 @@ class H {
         else {
             let emb = new SafeEmbed().setColor(H.embColor as any).setAuthor("Historia");
             [...queue.history].reverse().forEach((v, i) => {
-                emb.addField(`Kanał: **${v.author}**`, `${i+1}. **[${v.name}](${v.url})**`);
+                emb.addField(`Kanał: **${v.videoInfo.author.name}**`, `${i+1}. **[${v.videoInfo.name}](${v.videoInfo.url})**`);
             });
             let embs = emb.populateEmbeds();
             if(embs.length > 0)
@@ -233,13 +233,27 @@ class H {
         msg.channel.send(H.emb('Wyczyszczono historię odtwarzania'));
     }
 
-    // @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę', '`$prepeat (pozycja w historii)`')
-    // static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-    //     await H.assertVC(msg);
-    //     if(!args[1]) {
-    //         let saved = queue.history[queue.history.length - 1];
-    //         H.play(msg, ['play', saved.name])
-    //     }
-    //     args = bot.newArgs(msg, {arrayExpected: true});
-    // }
+    @aliases('rep')
+    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę', '`$prepeat (pozycja w historii, lub wiele pozycji w formacie [poz1, poz2, ...])`')
+    static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
+        await H.assertVC(msg, queue);
+        if(!args[1]) {
+            let saved = queue.history[queue.history.length - 1];
+            queue.addEntry(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}), false);
+        }
+        else {
+            args = bot.newArgs(msg, {arrayExpected: true});
+            if(typeof args[1] == 'string')
+                args[1] = [args[1]];
+            let wrong = args[1].filter((v: string) => !isNaN(+v) && ![...queue.history].reverse()[+v - 1]);
+            args[1] = args[1].filter((v: string) => !wrong.includes(v));
+            let entries: MusicEntry[] = [];
+            for(let entry of args[1]) {
+                let saved = queue.history[+entry - 1];
+                entries.push(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}));
+            }
+            queue.addEntry(entries, top);
+            wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
+        }
+    }
 }

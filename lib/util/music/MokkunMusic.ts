@@ -1,8 +1,6 @@
-import { Collection, Guild, TextChannel, DMChannel } from 'discord.js';
-import ytdl from 'ytdl-core-discord';
+import { Collection, Guild } from 'discord.js';
 import { MusicQueue } from './MusicQueue';
 import { Mokkun } from '../../mokkun';
-import { LoggedError } from '../errors/errors';
 
 export class MokkunMusic {
     private queues = new Collection<string, MusicQueue>();
@@ -19,12 +17,6 @@ export class MokkunMusic {
             this.queues.set(guild.id, q);
         }
         return q;
-    }
-
-    static getYTStream(url: string, ch: TextChannel | DMChannel) {
-        return ytdl(url, {quality: 'highestaudio', highWaterMark: 1<<25}).catch(e => {
-            throw new LoggedError(ch, e.message);
-        });
     }
 
     destroyQueue(guild: Guild) {

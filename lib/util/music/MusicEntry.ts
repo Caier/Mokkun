@@ -18,6 +18,8 @@ export class MusicEntry {
         this.queue = opts.queue;
         this.type = opts.type;
         this.videoInfo = opts.vid;
+        if(this.type == 'sc')
+            (this.videoInfo as TrackEntry).full_response = undefined;
     }
     
     get strTime() {
@@ -30,5 +32,12 @@ export class MusicEntry {
 
     get timeLeft() {
         return new Date(this.milisLeft).toISOString().slice(11, -5).replace(/^0+:?0?/g, '');
+    }
+
+    toJSON() {
+        return {
+            type: this.type,
+            videoInfo: this.videoInfo
+        }
     }
 }
