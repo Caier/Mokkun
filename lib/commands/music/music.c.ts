@@ -237,7 +237,9 @@ class H {
     @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę', '`$prepeat (pozycja w historii, lub wiele pozycji w formacie [poz1, poz2, ...])`')
     static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
         await H.assertVC(msg, queue);
-        if(!args[1]) {
+        if(queue.history?.length == 0)
+            msg.channel.send(H.emb('Historia odtwarzania jest pusta!'));
+        else if(!args[1]) {
             let saved = queue.history[queue.history.length - 1];
             queue.addEntry(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}), false);
         }
