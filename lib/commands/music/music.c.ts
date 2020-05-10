@@ -251,7 +251,7 @@ class H {
             args[1] = args[1].filter((v: string) => !wrong.includes(v));
             let entries: MusicEntry[] = [];
             for(let entry of args[1]) {
-                let saved = queue.history[+entry - 1];
+                let saved = [...queue.history].reverse()[+entry - 1];
                 entries.push(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}));
             }
             queue.addEntry(entries, top);
