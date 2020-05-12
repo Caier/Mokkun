@@ -258,4 +258,10 @@ class H {
             wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
         }
     }
+
+    @aliases('aplay')
+    @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
+    static async autoplay(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        msg.channel.send(H.emb(queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie'));
+    }
 }

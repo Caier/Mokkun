@@ -6,14 +6,17 @@ import { Readable } from "stream";
 import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
 import ytdl from 'ytdl-core-discord';
+import yts from '@caier/yts';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
 import { isArray } from "util";
+import ax from 'axios';
+import $ from 'cheerio';
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
-    private watchInterval = 1000;
     private tryingToPlay = false;
+    private readonly watchInterval = 1000;
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
     private readonly maxHistory = 200;
@@ -22,6 +25,7 @@ export class MusicQueue extends BaseClient {
     VoiceCon: VoiceConnection;
     playing: MusicEntry | null = null;
     outChannel?: TextChannel;
+    autoplay = false;
 
     constructor(master: MokkunMusic, guild: Guild) { 
         super();
@@ -36,7 +40,7 @@ export class MusicQueue extends BaseClient {
                 this.master.destroyQueue(this.outChannel.guild);
             else if(this.status == 'idle' && this.queue.length > 0)
                 this.playNext();
-            else if(this.status == 'idle' || this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length == 0)
+            else if(['idle', 'paused', 'disconnected'].includes(this.status) || this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length == 0)
                 this.idleTime += this.watchInterval;
             else
                 this.idleTime = 0;
@@ -70,13 +74,28 @@ export class MusicQueue extends BaseClient {
             this.announce('nextSong');
             await this.play(this.playing);
         }
+        else if(this.autoplay && this.playing?.type == 'yt') {
+            this.playing.dispatcher?.destroy();
+            this.addAutoNext();
+            this.shiftToHistory();
+        }
         else
             this.finish();
+    }
+
+    private addAutoNext() {
+        ax.get(this.playing.videoInfo.url + '&disable_polymer=1').then(async resp => {
+            this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + $('.autoplay-bar .content-link', resp.data).attr('href'))).videos[0],
+                                          member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
+        }).catch(err => {
+            throw new LoggedError(this.outChannel, err.message);
+        });
     }
 
     private shiftToHistory() {
         if(!this.playing) return;
         this.history.push(this.playing.toJSON());
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(-this.maxHistory));
         this.playing = null;
     }
 
@@ -212,6 +231,11 @@ export class MusicQueue extends BaseClient {
         : this.VoiceCon?.status != 0 ? 'disconnected' 
         : this.tryingToPlay ? 'busy' 
         : 'idle';
+    }
+
+    toggleAutoplay() {
+        this.autoplay = !this.autoplay;
+        return this.autoplay;
     }
 
     destroy() {
