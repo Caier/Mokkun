@@ -115,6 +115,14 @@ namespace Utils {
         });
         return coll;
     }
+
+    /**
+     * Converts amount of time in miliseconds to a readable time string
+     * @param milis The number of miliseconds
+     */
+    export function milisToReadableTime(milis: number) {
+        return new Date(milis).toISOString().slice(11, -5).replace(/^0+:?0?/g, '');
+    }
 }
 
 export default Utils;

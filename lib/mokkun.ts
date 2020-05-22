@@ -212,4 +212,8 @@ export class Mokkun extends Discord.Client {
     emb(content: string, color = this.sysColor, random?: boolean) {
         return this.embgen(color, content, random);
     }
+
+    sendHelp(msg: IExtMessage, command: string) {
+        this.commands.get('?').execute(msg, ['?', command], this);
+    }
 }
