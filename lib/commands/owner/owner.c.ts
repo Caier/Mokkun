@@ -1,13 +1,18 @@
 import { group, ownerOnly, register, CmdParams as c } from "../../util/cmdUtils";
+
+//useful imports for .eval
 import fs from 'fs-extra';
 import path from 'path';
 import ax from 'axios';
+import Utils from '../../util/utils';
 
 @ownerOnly
 @group("Bot owner")
 class Handler {
     @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
     static eval(msg: c.m, args: c.a, bot: c.b) {
+        const print = (cont: any, opts?: any) => msg.channel.send(cont, opts);
+
         let code = msg.content.slice(msg.prefix.length + this.name.length);
         try {
             eval(code);

@@ -16,6 +16,7 @@ import $ from 'cheerio';
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
     private tryingToPlay = false;
+    private ytCookie = '';
     private readonly watchInterval = 1000;
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
@@ -31,6 +32,7 @@ export class MusicQueue extends BaseClient {
         super();
         this.master = master;
         this.history = (this.master.bot.db.Data?.[guild.id]?.musicHistory || []) as IMusicHistory[];
+        this.autoplay = this.master.bot.db.Data?.[guild.id]?.musicAutoplay || false;
         this.watch();
     }
 
@@ -76,20 +78,43 @@ export class MusicQueue extends BaseClient {
         }
         else if(this.autoplay && this.playing?.type == 'yt') {
             this.playing.dispatcher?.destroy();
-            this.addAutoNext();
-            this.shiftToHistory();
+            await this.addAutoNext();
         }
         else
             this.finish();
     }
 
-    private addAutoNext() {
-        ax.get(this.playing.videoInfo.url + '&disable_polymer=1').then(async resp => {
-            this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + $('.autoplay-bar .content-link', resp.data).attr('href'))).videos[0],
-                                          member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
-        }).catch(err => {
-            throw new LoggedError(this.outChannel, err.message);
-        });
+    private async addAutoNext() {
+        let resp = await ax.get(this.playing.videoInfo.url + '&pbj=1', {headers: {cookie: this.ytCookie, 'x-youtube-client-name': 1, 'x-youtube-client-version': '2.20200513.00.00',
+        'x-spf-previous': this.playing.videoInfo.url, 'x-spf-referer': this.playing.videoInfo.url, referer: this.playing.videoInfo.url}, responseType: 'json'});
+        let posCook = resp.headers['set-cookie'];
+        if(!this.ytCookie)
+            this.ytCookie = posCook.reduce((prev: any, cur: any) => prev + cur.split(' ')[0] + ' ', '');
+        console.log(this.ytCookie);
+        let url = resp.data[3].response.contents.twoColumnWatchNextResults.secondaryResults.secondaryResults
+                  .results[0].compactAutoplayRenderer.contents[0].compactVideoRenderer.navigationEndpoint
+                  .commandMetadata.webCommandMetadata.url;
+        this.shiftToHistory();
+        this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + url)).videos[0],
+                      member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
+
+        // let vid = await ytdl.getInfo(this.playing.videoInfo.url);
+        // let choice: any = vid.related_videos[Utils.rand(0, vid.related_videos.length - 1)];
+        // let entry: VideoEntry = {
+        //     name: choice.title,
+        //     thumbnail: choice.video_thumbnail,
+        //     duration: Utils.milisToReadableTime(choice.length_seconds * 1000),
+        //     milis: choice.length_seconds * 1000,
+        //     views: choice.view_count,
+        //     description: null,
+        //     url: 'https://www.youtube.com/watch?v=' + choice.id,
+        //     author: {
+        //         name: choice.author,
+        //         url: null
+        //     }
+        // }
+        // this.shiftToHistory();
+        // this.addEntry(new MusicEntry({vid: entry, member: this.dummyAutoplayUser as any, queue: this, type: 'yt'}), false);
     }
 
     private shiftToHistory() {
@@ -235,6 +260,7 @@ export class MusicQueue extends BaseClient {
 
     toggleAutoplay() {
         this.autoplay = !this.autoplay;
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicAutoplay`, this.autoplay);
         return this.autoplay;
     }
 

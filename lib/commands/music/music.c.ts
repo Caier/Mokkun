@@ -234,14 +234,25 @@ class H {
     }
 
     @aliases('rep')
-    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę', '`$prepeat (pozycja w historii, lub wiele pozycji w formacie [poz1, poz2, ...])`')
+    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji w formacie [poz1, poz2, ...])`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)')
     static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
-        await H.assertVC(msg, queue);
-        if(queue.history?.length == 0)
+        await H.assertVC(msg);
+        if(queue.history?.length == 0) {
             msg.channel.send(H.emb('Historia odtwarzania jest pusta!'));
-        else if(!args[1]) {
+            return;
+        }
+        await H.assertVC(msg, queue);
+        if(!args[1]) {
             let saved = queue.history[queue.history.length - 1];
             queue.addEntry(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}), false);
+        }
+        else if(args[1] == 'all') {
+            let already: string[] = [];
+            let entries: MusicEntry[] = queue.history.filter(v => 
+                !already.includes(v.videoInfo.url) && already.push(v.videoInfo.url)     
+            ).map(v => 
+                new MusicEntry({vid: v.videoInfo, member: msg.member, queue: queue, type: v.type}));
+            queue.addEntry(entries, top);
         }
         else {
             args = bot.newArgs(msg, {arrayExpected: true});
@@ -263,5 +274,11 @@ class H {
     @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
     static async autoplay(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         msg.channel.send(H.emb(queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie'));
+    }
+
+    @register('losowo miesza utwory w kolejce', '`$pshuffle`')
+    static shuffle(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        queue.queue = Utils.arrayShuffle(queue.queue);
+        msg.channel.send(H.emb('Pomieszano utwory w kolejkce'));
     }
 }

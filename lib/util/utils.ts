@@ -123,6 +123,22 @@ namespace Utils {
     export function milisToReadableTime(milis: number) {
         return new Date(milis).toISOString().slice(11, -5).replace(/^0+:?0?/g, '');
     }
+
+    /**
+     * Shuffles a copy of provided array and returns it
+     * @param array The array to shuffle
+     * @returns The shuffled array
+     */
+    export function arrayShuffle<T>(array: T[]) {
+        array = array.slice();
+        for(let i = 0; i < array.length - 2; i++) {
+            let j = rand(i, array.length - 1);
+            let temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+        return array;
+    }
 }
 
 export default Utils;
