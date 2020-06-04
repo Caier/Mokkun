@@ -279,6 +279,6 @@ class H {
     @register('losowo miesza utwory w kolejce', '`$pshuffle`')
     static shuffle(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         queue.queue = Utils.arrayShuffle(queue.queue);
-        msg.channel.send(H.emb('Pomieszano utwory w kolejkce'));
+        msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
     }
 }

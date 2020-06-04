@@ -19,7 +19,17 @@ class H {
             bot.sendHelp(msg, 'choose');
             return;
         }
-        args = bot.newArgs(msg, {splitter: '|'});
+        args = bot.newArgs(msg, {splitter: '|', freeargs: 1});
         msg.channel.send(H.choosePhrase(`**${args[Utils.rand(1, args.length - 1)]}**`, H.selPhrases as any));
+    }
+
+    @register('losuje numer spośród podanego zakresu :cowboy:', '`$proll (minimum) {maksimum}`')
+    static roll(msg: c.m, args: c.a, bot: c.b) {
+        const fi = args.length == 3;
+        if(!args.slice(1).every(v => !isNaN(+v)) || args.length == 1 || (fi && args[2] < args[1]) || (!fi && args[1] < 1)) {
+            bot.sendHelp(msg, 'roll');
+            return;
+        }
+        msg.channel.send(`**${msg.author.username}** losuje numer z zakresu **${fi ? args[1] : 1}** - **${fi ? args[2] : args[1]}**...\nWylosowano: **${Utils.rand(fi ? +args[1] : 1, fi ? +args[2] : +args[1])}**`);
     }
 }
