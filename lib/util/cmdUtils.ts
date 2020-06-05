@@ -77,8 +77,8 @@ export function extend(transFn: any) {
         for(let fn in target) {
             if(!fn.startsWith("_")) continue;
             let temp = target[fn].execute;
-            target[fn].execute = function(msg: any, args: any, bot: any) {
-                temp(...transFn(msg, args, bot));
+            target[fn].execute = async function(msg: any, args: any, bot: any) {
+                await temp(...transFn(msg, args, bot));
             }
         }
     }

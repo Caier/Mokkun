@@ -60,20 +60,20 @@ class H {
 
     @aliases('top')
     @register('dodaje na górę kolejki (z YT)', '`$pplaytop {co odtworzyć}`')
-    static playtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.play(msg, args, bot, queue, true);
+    static async playtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.play(msg, args, bot, queue, true);
     }
 
     @aliases('sc')
     @register('dodaje do kolejki (z SoundCloud)', '`$psoundcloud {co odtworzyć}`')
-    static soundcloud(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.play(msg, args, bot, queue, false, true);
+    static async soundcloud(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.play(msg, args, bot, queue, false, true);
     }
 
     @aliases('sctop')
     @register('dodaje na górę kolejki (z SoundCloud)', '`$psoundcloudtop {co odtworzyć}`')
-    static soundcloudtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.play(msg, args, bot, queue, true, true);
+    static async soundcloudtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.play(msg, args, bot, queue, true, true);
     }
 
     @aliases('sea')
@@ -118,20 +118,20 @@ class H {
 
     @aliases('seatop')
     @register('dodaje na górę kolejki wybór z listy', `$psearchtop {wyszukanie}`)
-    static searchtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.search(msg, args, bot, queue, true, false);
+    static async searchtop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.search(msg, args, bot, queue, true, false);
     }
 
     @aliases('seasc')
     @register('dodaje do kolejki wybór z listy (z SoundCloud)', '`$psearchsc {wyszukanie}`')
-    static searchsc(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.search(msg, args, bot, queue, false, true);
+    static async searchsc(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.search(msg, args, bot, queue, false, true);
     }
 
     @aliases('seasctop')
     @register('dodaje na górę kolejki wybór z listy (z SoundCloud)', '`$psearchsctop {wyszukanie}`')
-    static searchsctop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        H.search(msg, args, bot, queue, true, true);
+    static async searchsctop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        await H.search(msg, args, bot, queue, true, true);
     }
 
     @register('przechodzi do następnego utworu', '`$pskip (ile skipnąć)`')
