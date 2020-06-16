@@ -245,27 +245,29 @@ class H {
     }
 
     @aliases('rep')
-    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji oddzielonych spacją)`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)')
+    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji oddzielonych spacją)`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)\n`$prepeat random (x)` - dodaje do kolejki x utworów z historii')
     static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
         await H.assertVC(msg);
         if(queue.history?.length == 0) {
             msg.channel.send(H.emb('Historia odtwarzania jest pusta!'));
             return;
         }
+        args = bot.newArgs(msg);
         await H.assertVC(msg, queue);
         if(!args[1]) {
             let saved = queue.history[queue.history.length - 1];
             queue.addEntry(MusicEntry.fromJSON(saved, msg.author.username), false);
         }
-        else if(args[1] == 'all') {
+        else if(args[1] == 'all' || args[1] == 'random') {
             let already: string[] = [];
             let entries: MusicEntry[] = queue.history.filter(v => 
                 !already.includes(v.videoInfo.url) && already.push(v.videoInfo.url)     
             ).map(v => MusicEntry.fromJSON(v, msg.author.username));
+            if(args[1] == 'random')
+                entries = Utils.arrayShuffle(entries).slice(0, !isNaN(+args[2]) && +args[2] || 1);
             queue.addEntry(entries, top);
         }
         else {
-            args = bot.newArgs(msg);
             args[1] = args.slice(1);
             let wrong = args[1].filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
             args[1] = args[1].filter((v: string) => !wrong.includes(v));
