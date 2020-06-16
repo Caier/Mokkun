@@ -31,18 +31,21 @@ export class MusicQueue extends BaseClient {
     constructor(master: MokkunMusic, guild: Guild) { 
         super();
         this.master = master;
-        this.history = (this.master.bot.db.Data?.[guild.id]?.musicHistory || []) as IMusicHistory[];
-        this.autoplay = this.master.bot.db.Data?.[guild.id]?.musicAutoplay || false;
+        this.history = (this.master.bot.db.Data?.[guild.id]?.music?.history || []) as IMusicHistory[];
+        this.queue = ((this.master.bot.db.Data?.[guild.id]?.music?.queue || []) as IMusicHistory[]).map(h => MusicEntry.fromJSON(h));
+        this.autoplay = this.master.bot.db.Data?.[guild.id]?.music?.autoplay || false;
         this.watch();
     }
+
+    private nonBotListeners = () => this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length;
 
     private watch() {
         this.setInterval(() => {
             if(this.idleTime >= this.maxIdle)
-                this.master.destroyQueue(this.outChannel.guild);
+                this.stop();
             else if(this.status == 'idle' && this.queue.length > 0)
                 this.playNext();
-            else if(['idle', 'paused', 'disconnected'].includes(this.status) || this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length == 0)
+            else if(['idle', 'disconnected'].includes(this.status) || this.nonBotListeners() == 0)
                 this.idleTime += this.watchInterval;
             else
                 this.idleTime = 0;
@@ -73,6 +76,7 @@ export class MusicQueue extends BaseClient {
         if(this.queue.length > 0) {
             this.shiftToHistory();
             this.playing = this.queue.shift() as MusicEntry;
+            this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, this.queue.map(e => e.toJSON()));
             this.announce('nextSong');
             await this.play(this.playing);
         }
@@ -85,18 +89,18 @@ export class MusicQueue extends BaseClient {
     }
 
     private async addAutoNext() {
-        let resp = await ax.get(this.playing.videoInfo.url + '&pbj=1', {headers: {cookie: this.ytCookie, 'x-youtube-client-name': 1, 'x-youtube-client-version': '2.20200513.00.00',
-        'x-spf-previous': this.playing.videoInfo.url, 'x-spf-referer': this.playing.videoInfo.url, referer: this.playing.videoInfo.url}, responseType: 'json'});
-        let posCook = resp.headers['set-cookie'];
-        if(!this.ytCookie)
-            this.ytCookie = posCook.reduce((prev: any, cur: any) => prev + cur.split(' ')[0] + ' ', '');
-        console.log(this.ytCookie);
-        let url = resp.data[3].response.contents.twoColumnWatchNextResults.secondaryResults.secondaryResults
-                  .results[0].compactAutoplayRenderer.contents[0].compactVideoRenderer.navigationEndpoint
-                  .commandMetadata.webCommandMetadata.url;
-        this.shiftToHistory();
-        this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + url)).videos[0],
-                      member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
+        // let resp = await ax.get(this.playing.videoInfo.url + '&pbj=1', {headers: {cookie: this.ytCookie, 'x-youtube-client-name': 1, 'x-youtube-client-version': '2.20200513.00.00',
+        // 'x-spf-previous': this.playing.videoInfo.url, 'x-spf-referer': this.playing.videoInfo.url, referer: this.playing.videoInfo.url}, responseType: 'json'});
+        // let posCook = resp.headers['set-cookie'];
+        // if(!this.ytCookie)
+        //     this.ytCookie = posCook.reduce((prev: any, cur: any) => prev + cur.split(' ')[0] + ' ', '');
+        // console.log(this.ytCookie);
+        // let url = resp.data[3].response.contents.twoColumnWatchNextResults.secondaryResults.secondaryResults
+        //           .results[0].compactAutoplayRenderer.contents[0].compactVideoRenderer.navigationEndpoint
+        //           .commandMetadata.webCommandMetadata.url;
+        // this.shiftToHistory();
+        // this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + url)).videos[0],
+        //               member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
 
         // let vid = await ytdl.getInfo(this.playing.videoInfo.url);
         // let choice: any = vid.related_videos[Utils.rand(0, vid.related_videos.length - 1)];
@@ -120,7 +124,7 @@ export class MusicQueue extends BaseClient {
     private shiftToHistory() {
         if(!this.playing) return;
         this.history.push(this.playing.toJSON());
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(-this.maxHistory));
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.history`, this.history.slice(-this.maxHistory));
         this.playing = null;
     }
 
@@ -155,6 +159,7 @@ export class MusicQueue extends BaseClient {
     private finish() {
         this.playing?.dispatcher?.destroy();
         this.shiftToHistory();
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, []);
     }
 
     announce(what: 'nextSong'|'addedToQueue'|'removed'|'addedMultiple', entry?: MusicEntry, ret?: boolean) : void | SafeEmbed {
@@ -169,7 +174,7 @@ export class MusicQueue extends BaseClient {
             .setThumbnail(pl.videoInfo.thumbnail)
             .addField("Kanał", pl.videoInfo.author.name, true)
             .addField("Długość", pl.videoInfo.duration, true)
-            .addField("Dodano przez", pl.addedBy.user.username, true)
+            .addField("Dodano przez", pl.addedBy, true)
             .addField("Następnie", this.queue[0]?.videoInfo.name ?? 'brak');
         } 
         else if(what == 'addedToQueue') {
@@ -260,16 +265,25 @@ export class MusicQueue extends BaseClient {
 
     toggleAutoplay() {
         this.autoplay = !this.autoplay;
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicAutoplay`, this.autoplay);
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.autoplay`, this.autoplay);
         return this.autoplay;
     }
 
-    destroy() {
+    stop() {
         this.playing?.dispatcher?.destroy();
         this.disconnect();
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.musicHistory`, this.history.slice(-this.maxHistory));
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.history`, this.history.slice(-this.maxHistory));
+        if(this.queue.length > 0)
+            this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, this.queue.map(e => e.toJSON()));
         super.destroy();
+        this.master.deleteQueue(this.outChannel.guild.id);
         for(let prop in this)
             delete this[prop];
+    }
+
+    destroy() {
+        let db = this.master.bot.db, id = this.outChannel.guild.id;
+        this.stop();
+        db.save(`Data.${id}.music`, undefined);
     }
 }

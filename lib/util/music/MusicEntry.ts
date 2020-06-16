@@ -3,19 +3,18 @@ import { MusicQueue } from "./MusicQueue";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { TrackEntry } from "@caier/sc/lib/interfaces";
 import uuid from 'uuid/v4';
+import { IMusicHistory } from "../interfaces/IMusicHistory";
 
 export class MusicEntry {
     id: string = uuid();
     addedOn: number = Date.now();
-    addedBy: GuildMember;
-    queue: MusicQueue;
+    addedBy: string;
     type: "yt"|"sc";
     videoInfo: VideoEntry | TrackEntry;
     dispatcher?: StreamDispatcher;
 
-    constructor(opts: {vid: VideoEntry | TrackEntry, member: GuildMember, queue: MusicQueue, type: "yt"|"sc"}) {
-        this.addedBy = opts.member;
-        this.queue = opts.queue;
+    constructor(opts: {vid: VideoEntry | TrackEntry, by: string, type: "yt"|"sc", queue?: any}) {
+        this.addedBy = opts.by;
         this.type = opts.type;
         this.videoInfo = opts.vid;
         if(this.type == 'sc')
@@ -37,7 +36,16 @@ export class MusicEntry {
     toJSON() {
         return {
             type: this.type,
-            videoInfo: this.videoInfo
-        }
+            videoInfo: this.videoInfo,
+            addedBy: this.addedBy
+        } as IMusicHistory;
+    }
+
+    static fromJSON(json: IMusicHistory, by?: string) {
+        return new MusicEntry({
+            vid: json.videoInfo,
+            by: by || json.addedBy,
+            type: json.type
+        });
     }
 }

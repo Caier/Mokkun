@@ -46,16 +46,18 @@ class H {
             msg.channel.send(H.emb('Wznowiono odtwarzanie ⏯'));
             return;
         }
-        else if(!args[1]) {
+        else if(!args[1] && queue.queue.length == 0) {
             H.whatToPlay(msg);
             return;
         }
+        else if(!args[1]) 
+            return;
         let vid = !fromSC ? (await yts(args[1]))?.videos?.[0] : (await sc.search(args[1]))?.tracks?.[0];
         if(!vid) {
             H.notFound(msg);
             return;
         }
-        queue.addEntry(new MusicEntry({vid: vid, member: msg.member, queue: queue, type: fromSC ? 'sc' : 'yt'}), top);
+        queue.addEntry(new MusicEntry({vid: vid, by: msg.author.username, type: fromSC ? 'sc' : 'yt'}), top);
     }
 
     @aliases('top')
@@ -102,7 +104,7 @@ class H {
                 if(rmsg.author.id != msg.author.id || rmsg.channel.id != msg.channel.id) return;
 
                 if(entries[+rmsg.content - 1]) {
-                    queue.addEntry(new MusicEntry({vid: entries[+rmsg.content - 1], member: msg.member, queue: queue, type: fromSC ? "sc" : "yt"}), top);
+                    queue.addEntry(new MusicEntry({vid: entries[+rmsg.content - 1], by: msg.author.username, queue: queue, type: fromSC ? "sc" : "yt"}), top);
                     rmsg.content = "stop";
                 }
                 if(rmsg.content == 'stop') {
@@ -158,12 +160,12 @@ class H {
     }
 
     @aliases('rem')
-    @register('usuwa wybrane utwory z kolejki', '`$premove {pozycja w kolejce, lub wiele pozycji w formacie [poz1, poz2, ...], lub "all" aby usunąć wszystkie}`')
+    @register('usuwa wybrane utwory z kolejki', '`$premove {pozycja w kolejce, lub wiele pozycji oddzielonych spacją, lub "all" aby usunąć wszystkie}`')
     static async remove(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         await H.assertVC(msg);
         if(!args[1]) return;
-        args = bot.newArgs(msg, {arrayExpected: true});
-        if(typeof args[1] == 'string') args[1] = [args[1]];
+        args = bot.newArgs(msg);
+        args[1] = args.slice(1);
         let wrong = queue.remove(args[1]);
         wrong.length && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
     }
@@ -203,9 +205,18 @@ class H {
 
     @aliases('dq')
     @register('niszczy kolejkę i każdą jej właściwość', '`$pdestroyQueue`')
-    static destroyQueue(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        bot.music.destroyQueue(msg.guild);
-        msg.channel.send(H.emb('Zniszczono kolejkę'));
+    static async destroyQueue(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        let conf = await Utils.confirmBox(msg.channel as any, "Ta komenda wyczyści wszyskie właściwości kolejki, jej historię, ustawienia, playlisty itd.\nJeśli chcesz jedynie zatrzymać odtwarzanie, użyj komendy `pause` lub `stop`\n\nCzy na pewno chcesz zniszczyć kolejkę tego serwera?", msg.author);
+        if(conf) {
+            bot.music.destroyQueue(msg.guild);
+            msg.channel.send(H.emb('Zniszczono kolejkę'));
+        }
+    }
+
+    @register('zatrzymuje odtwarzanie i rozłącza bota', '$pstop')
+    static stop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        queue.stop();
+        msg.channel.send(H.emb('Zatrzymano kolejkę ⏹'));
     }
 
     @aliases('his')
@@ -234,7 +245,7 @@ class H {
     }
 
     @aliases('rep')
-    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji w formacie [poz1, poz2, ...])`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)')
+    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji oddzielonych spacją)`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)')
     static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
         await H.assertVC(msg);
         if(queue.history?.length == 0) {
@@ -244,26 +255,24 @@ class H {
         await H.assertVC(msg, queue);
         if(!args[1]) {
             let saved = queue.history[queue.history.length - 1];
-            queue.addEntry(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}), false);
+            queue.addEntry(MusicEntry.fromJSON(saved, msg.author.username), false);
         }
         else if(args[1] == 'all') {
             let already: string[] = [];
             let entries: MusicEntry[] = queue.history.filter(v => 
                 !already.includes(v.videoInfo.url) && already.push(v.videoInfo.url)     
-            ).map(v => 
-                new MusicEntry({vid: v.videoInfo, member: msg.member, queue: queue, type: v.type}));
+            ).map(v => MusicEntry.fromJSON(v, msg.author.username));
             queue.addEntry(entries, top);
         }
         else {
-            args = bot.newArgs(msg, {arrayExpected: true});
-            if(typeof args[1] == 'string')
-                args[1] = [args[1]];
-            let wrong = args[1].filter((v: string) => !isNaN(+v) && ![...queue.history].reverse()[+v - 1]);
+            args = bot.newArgs(msg);
+            args[1] = args.slice(1);
+            let wrong = args[1].filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
             args[1] = args[1].filter((v: string) => !wrong.includes(v));
             let entries: MusicEntry[] = [];
             for(let entry of args[1]) {
                 let saved = [...queue.history].reverse()[+entry - 1];
-                entries.push(new MusicEntry({vid: saved.videoInfo, member: msg.member, queue: queue, type: saved.type}));
+                entries.push(MusicEntry.fromJSON(saved, msg.author.username));
             }
             queue.addEntry(entries, top);
             wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
@@ -273,7 +282,7 @@ class H {
     @aliases('aplay')
     @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
     static async autoplay(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        msg.channel.send(H.emb(queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie'));
+        msg.channel.send(H.emb('Autoodtwarzanie nie jest obecnie wspierane'/* queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie' */));
     }
 
     @register('losowo miesza utwory w kolejce', '`$pshuffle`')

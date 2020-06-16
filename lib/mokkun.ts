@@ -6,7 +6,7 @@ import * as loops from './util/misc/loops';
 import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
-import { LoggedError } from './util/errors/errors';
+import { LoggedError, SilentError } from './util/errors/errors';
 import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
 import { IExtMessage } from './util/interfaces/IExtMsg';
 import Utils from './util/utils';
@@ -170,7 +170,7 @@ export class Mokkun extends Discord.Client {
             }
         }
         catch(err) {
-            console.error(`Error while executing command ${args[0]}: ${err.stack}`);
+            !(err instanceof SilentError) && console.error(`Error while executing command ${args[0]}: ${err.stack}`);
             msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
         }
     }
@@ -201,8 +201,8 @@ export class Mokkun extends Discord.Client {
         return args;
     }
 
-    newArgs(message: IExtMessage, options: {splitter?: string, freeargs?: number, arrayExpected?: boolean}) {
-        return this.getArgs(message.content, message.prefix, options.splitter, options.freeargs, options.arrayExpected);
+    newArgs(message: IExtMessage, options?: {splitter?: string, freeargs?: number, arrayExpected?: boolean}) {
+        return this.getArgs(message.content, message.prefix, options?.splitter, options?.freeargs, options?.arrayExpected);
     }
 
     embgen(color: string | number = this.sysColor, content: string, random?: boolean) {

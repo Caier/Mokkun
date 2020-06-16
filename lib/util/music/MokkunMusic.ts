@@ -19,6 +19,8 @@ export class MokkunMusic {
         return q;
     }
 
+    deleteQueue = (id: string) => this.queues.delete(id);
+
     destroyQueue(guild: Guild) {
         this.getQueue(guild).destroy();
         return this.queues.delete(guild.id);
