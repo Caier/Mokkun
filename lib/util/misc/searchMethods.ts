@@ -150,12 +150,11 @@ export async function fromNH(src?: string, tags?: string) {
     let ret = {
         "link": "https://nhentai.net" + $("#cover > a", body.toString()).attr('href').slice(0, -2),
         "name": $("#info > h1", body.toString()).text(),
-        "tags": $("#info > #tags > div", body.toString()).eq(2).children("span").text().trim().replace(/[,)0-9]/g, "").replace(/[(]/g, ", "),
+        "tags": $(".tag-container:nth-child(3) .name", body.toString()).map((i, elem) => $(elem).text()).toArray().join(', '),
         "thumb": $("#cover > a > img", body.toString()).attr('data-src'),
-        "maxPage": parseInt($("#info > div", body.toString()).first().text().replace(/[ A-z]/g, " ")),
-        "format": $("#thumbnail-container > div > a > img", body.toString()).eq(1).attr('data-src').split(".").pop()
+        "maxPage": +$(".tag-container:nth-child(8) .name", body.toString()).text(),
+        "format": $(".thumb-container > a > img", body.toString()).eq(1).attr('data-src').split(".").pop()
     };
-    
     return ret;
 }
 

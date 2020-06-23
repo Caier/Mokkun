@@ -1,6 +1,6 @@
 import { TextChannel, DMChannel } from 'discord.js';
 
-export class LoggedError extends Error {
+export class LoggedError extends Error { //caught by the unhandled rejection handler and logged in a text channel
     public channel?: TextChannel | DMChannel;
 
     constructor(channel?: TextChannel | DMChannel, message?: string) { 
@@ -9,7 +9,7 @@ export class LoggedError extends Error {
     }
 }
 
-export class SilentError extends Error {
+export class SilentError extends Error { //not logged anywhere
     constructor(msg?: string) {
         super(msg);
     }

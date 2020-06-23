@@ -150,21 +150,25 @@ namespace Utils {
      * @param color Color of the embed
      * @param emojis Emojis which are going to be used as reactions
      * @returns `true` if user answered yes, `false` if user answered no
-     * @throws An error if user did not respond within 2 minutes
      */
     export function confirmBox(channel: TextChannel | DMChannel, question: string, who: User, color = '#bc0000', emojis = ['✅', '❌']) : Promise<boolean> {
-        return new Promise(async (res, rej) => {
+        return new Promise(async res => {
+            let c = false;
             let msg = await channel.send(new SafeEmbed({author: {name: 'Uwaga!'}, description: question, color: color, footer: {text: 'Zdecyduj, używając poniższych reakcji'}}));
             for(let e of emojis)
                 await msg.react(e);
             let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && user.id == who.id && emojis.includes(react.emoji.name), {time: 120000});
             coll.on('collect', react => {
+                c = true;
                 res(react.emoji.name == emojis[0]);
                 coll.stop();
             });
             coll.on('end', () => {
                 msg.delete({timeout: 150});
-                rej(new SilentError('Użytkownik nie wybrał żadnej z opcji.'));
+                if(!c) {
+                    channel.send(new SafeEmbed({color: color, author: {name: "Użytkownik nie wybrał żadnej z opcji."}}));
+                    res(false);
+                }
             });
         });
     }

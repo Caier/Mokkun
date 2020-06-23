@@ -170,7 +170,9 @@ export class Mokkun extends Discord.Client {
             }
         }
         catch(err) {
-            !(err instanceof SilentError) && console.error(`Error while executing command ${args[0]}: ${err.stack}`);
+            if(err instanceof SilentError)
+                return;
+            console.error(`Error while executing command ${args[0]}: ${err.stack}`);
             msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
         }
     }
