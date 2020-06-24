@@ -135,7 +135,7 @@ export async function fromNH(src?: string, tags?: string) {
     async function fromSearch(tags: string)
     {
         let body = await rp("https://nhentai.net/search/?q=" + encodeURI(tags.replace(/ /g, "+")), {encoding: null, rejectUnauthorized: false});
-        let max = Math.ceil(parseInt($("#content > h2", body.toString()).html().replace(/[ ,A-z]/g, "")) / 25);
+        let max = Math.ceil(parseInt($("#content > h1", body.toString()).text().replace(/[ ,A-z]/g, "")) / 25);
         if(!max) return;
         
         body = await rp(`https://nhentai.net/search/?q=${encodeURI(tags.replace(/ /g, "+"))}&page=${Math.floor(Math.random() * max) + 1}`, {encoding: null, rejectUnauthorized: false});
