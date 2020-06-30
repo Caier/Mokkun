@@ -41,11 +41,12 @@ class Handler {
     }
 
     @register('aktualizuje bota', '`$pupdate`')
-    static update(msg: c.m, args: c.a, bot: c.b) {
+    static async update(msg: c.m, args: c.a, bot: c.b) {
+        msg.channel.send(bot.emb('**Aktualizowanie... (Obserwuj status)**'));
+        await bot.user.setActivity("Aktualizowanie...", {type: 'PLAYING'});
         cp.exec('../updMokk.sh', (err, stdout) => {
             if (err)
                 throw err;
-            msg.channel.send(stdout, {split: true, code: true});
         });
     }
 }
