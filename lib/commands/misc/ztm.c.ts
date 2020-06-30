@@ -2,6 +2,7 @@ import * as ztm from '../../util/misc/ztm';
 import fs from 'fs';
 import { register, CmdParams as c, group, extend, permissions } from '../../util/cmdUtils';
 import { SafeEmbed } from '../../util/embed/SafeEmbed';
+import { MessageReaction, User, TextChannel } from 'discord.js';
 
 export = H;
 
@@ -39,14 +40,23 @@ class H {
 
     @register('szacowane czasy odjazdy dla danego przystanku', '`$pztm {skrócona nazwa przystanku np. \'pias3\' (Piastowska 3) lub ID przystanku}`')
     static async ztm(msg: c.m, args: c.a, bot: c.b) {
+        let send = (cont: any, ID: string) =>
+            msg.channel.send(cont).then(async nmsg => {
+                await nmsg.react('🔄');
+                let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot, {time: 86400000});
+                coll.on('collect', async (react, user) => {
+                    if(nmsg.channel instanceof TextChannel) react.users.remove(user.id);
+                    nmsg.edit(H.genEstEmb(await ztm.getSIP(ID)));
+                })
+            });
         if(/^\d+$/.test(args[1]))
-            msg.channel.send(H.genEstEmb(await ztm.getSIP(args[1])));
+            send(H.genEstEmb(await ztm.getSIP(args[1])), args[1]);
         else if(args[1]) {
             let result = await ztm.getShort(args[1]);
             if(result.length == 0) 
                 return;
             else if(result.length == 1)
-                msg.channel.send(H.genEstEmb(result[0].res));
+                send(H.genEstEmb(result[0].res), result[0].res.numerTras);
             else {
                 let prz = "";
                 for(let x = 0; x < result.length; x++)
@@ -63,7 +73,7 @@ class H {
                         for(let x of result)
                             if(+rmsg.content == x.num || rmsg.content == "stop") {
                                 if(rmsg.content != "stop")
-                                    msg.channel.send(H.genEstEmb(x.res));
+                                    send(H.genEstEmb(x.res), x.res.numerTras);
                                 else
                                     msg.delete({timeout: 150});
                                 rmsg.delete({timeout: 150});
