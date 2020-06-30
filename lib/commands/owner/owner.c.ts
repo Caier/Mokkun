@@ -5,6 +5,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import ax from 'axios';
 import Utils from '../../util/utils';
+import cp from 'child_process';
 
 @ownerOnly
 @group("Bot owner")
@@ -37,6 +38,15 @@ class Handler {
             }
             else msg.channel.send(bot.embgen(bot.sysColor, `Dostępne typy statusu:\n${acceptable.join("\n")}`));
         }
+    }
+
+    @register('aktualizuje bota', '`$pupdate`')
+    static update(msg: c.m, args: c.a, bot: c.b) {
+        cp.exec('../updMokk.sh', (err, stdout) => {
+            if (err)
+                throw err;
+            msg.channel.send(stdout, {split: true, code: true});
+        });
     }
 }
 
