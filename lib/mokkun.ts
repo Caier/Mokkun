@@ -163,8 +163,8 @@ export class Mokkun extends Discord.Client {
                     msg.channel.send(this.emb("**Ten kanał nie pozwala na wysyłanie wiadomości NSFW!**"));
                 else if(cmd.notdm && msg.channel.type == 'dm')
                     msg.channel.send(this.embgen(this.sysColor, "**Z tej komendy nie można korzystać na PRIV!**"));
-                else if(msg.guild && cmd.permissions && !cmd.permissions.every(v => msg.member.permissions.toArray().includes(v)))
-                    msg.channel.send(this.embgen(this.sysColor, `**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissions.toArray().includes(p)).join("\n")}`));
+                else if(msg.guild && cmd.permissions && !cmd.permissions.every(perm => msg.member.permissionsIn(msg.channel).has(perm)))
+                    msg.channel.send(this.embgen(this.sysColor, `**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissionsIn(msg.channel).has(p)).join("\n")}`));
                 else 
                     await cmd.execute(msg, args, this);
             }
