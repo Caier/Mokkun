@@ -1,4 +1,4 @@
-import { aliases, register, CmdParams as c, group } from "../../util/cmdUtils";
+import { aliases, register, CmdParams as c, group, permissions } from "../../util/cmdUtils";
 import ax from 'axios';
 import fs from 'fs';
 import path from 'path';

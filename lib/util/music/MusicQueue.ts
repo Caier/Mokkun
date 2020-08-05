@@ -193,6 +193,7 @@ export class MusicQueue extends BaseClient {
             embed.setAuthor('Usunięto z kolejki')
             .setDescription(`**[${entry.videoInfo.name}](${entry.videoInfo.url})**`)
             .setThumbnail(entry.videoInfo.thumbnail)
+            .addField("Następnie", this.queue[0]?.videoInfo.name ?? 'brak');
         }
         else if(what == 'addedMultiple')
             embed.setAuthor(`Dodano ${(entry as any).length} utworów do kolejki`);
@@ -239,8 +240,10 @@ export class MusicQueue extends BaseClient {
             removed.push(this.queue.splice(this.queue.findIndex(v => v.id == entry.id), 1)[0]);
         if(this.queue.length == 0 && removed.length > 0)
             this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor('Wyczyszczono kolejkę'));
+        else if(removed.length > 1)
+            this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor(`Usunięto ${removed.length} utworów`).addField('Następnie', this.queue[0].videoInfo.name));
         else
-            removed.forEach(v => this.announce('removed', v));
+            this.announce('removed', removed[0]);
         
         return wrong;
     }
