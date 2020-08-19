@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@caier/sc": "^1.2.5",
-    "@caier/yts": "^1.1.3",
+    "@caier/yts": "^1.1.5",
     "@discordjs/opus": "^0.1.0",
     "@types/fs-extra": "^8.1.0",
     "@types/node": "^13.13.2",

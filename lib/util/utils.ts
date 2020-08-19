@@ -115,7 +115,7 @@ namespace Utils {
                 case emojis[4]: nmsg.delete({timeout: 150});
             }
         });
-        return coll;
+        return [coll, nmsg];
     }
 
     /**

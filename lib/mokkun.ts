@@ -7,7 +7,7 @@ import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
 import { LoggedError, SilentError } from './util/errors/errors';
-import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
+import { ICommand } from './util/interfaces/ICommand';
 import { IExtMessage } from './util/interfaces/IExtMsg';
 import Utils from './util/utils';
 

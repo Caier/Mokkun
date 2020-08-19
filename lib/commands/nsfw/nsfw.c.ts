@@ -2,22 +2,37 @@ import { group, aliases, register, CmdParams as c, nsfw } from "../../util/cmdUt
 import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { LoggedError } from "../../util/errors/errors";
+import { SafeEmbed } from "../../util/embed/SafeEmbed";
+import { MessageReaction, User } from "discord.js";
+
+export = H;
 
 @nsfw
 @group("NSFW")
-class Handler {
+class H {
+    static async newPostReact(msg: c.m, tags: string, method: 'r34'|'gb', bot: c.b) {
+        await msg.react('🔄');
+        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && react.emoji.name == '🔄', {time: Utils.parseTimeStrToMilis('10m')});
+        coll.on('collect', react => {
+            msg.delete({timeout: 150});
+            react.remove();
+            coll.stop();
+            msg.content = `.${method} ${tags}`;
+            bot.commands.get(method).execute(msg, [method, tags], bot);
+        });
+    }
+
     @aliases('gelbooru')
     @register('G E L B O O R U - obrazki thotów na wyciągnięcie ręki', '`$pgb {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam')
     static gb(msg: c.m, args: c.a, bot: c.b) {
         args = bot.getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#006ffa";
 
-        msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => 
-        {
+        msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => {
             let imgs = (args[1] == '') ? await fromGB(null, args[2]) : (!args[1]) ? await fromGB() : (args[2]) ? await fromGB(args[1], args[2]) : await fromGB(args[1]); 
      
             for (let x of imgs) {
-                let embed: any = new bot.RichEmbed();
+                let embed: any = new SafeEmbed();
                 if(x.tags != "video") {
                     embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1])
                          .setURL(x.page).setColor(color).setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/");
@@ -27,12 +42,13 @@ class Handler {
                 else embed = x.link;
 
                 if(x.comments.length > 1) {
-                    let emb = new bot.RichEmbed().setTitle("Komentarze").setColor(color);
+                    let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
                     x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
                     let embs = emb.populateEmbeds();
-                    Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
+                    let [, nmsg] = await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
+                    H.newPostReact(nmsg as c.m, args[1], 'gb', bot);
                 }
-                else msg.channel.send(embed);
+                else msg.channel.send(embed).then(msg => H.newPostReact(msg, args[1], 'gb', bot));
             }
     
             if(imgs.length == 0)
@@ -56,11 +72,11 @@ class Handler {
             {
                 if(x.tags != "video")
                 {
-                    let embed = new bot.RichEmbed();
+                    let embed = new SafeEmbed();
                     embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.link).setColor(color).setAuthor("rule34", "https://i.imgur.com/vRZar64.png", "http://rule34.xxx/");
-                    msg.channel.send(embed);
+                    msg.channel.send(embed).then(msg => H.newPostReact(msg, args[1], 'r34', bot));
                 } 
-                else msg.channel.send(x.link);
+                else msg.channel.send(x.link).then(msg => H.newPostReact(msg, args[1], 'r34', bot));
             }
     
             if(imgs.length == 0) msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
@@ -82,11 +98,11 @@ class Handler {
         : await fromNH();
        
         if(!doujin) {
-            msg.channel.send(new bot.RichEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            msg.channel.send(new SafeEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
             return;
         }
 
-        let embed = new bot.RichEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
+        let embed = new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
 
         msg.channel.send(embed).then(async nMsg => 
             {
@@ -119,7 +135,7 @@ class Handler {
                             curPage = (curPage > doujin.maxPage) ? doujin.maxPage : (curPage < 1) ? 1 : null;
                         
                         let newpageURL = `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${curPage}.${doujin.format}`;
-                        nMsg.edit(new bot.RichEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`));
+                        nMsg.edit(new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`));
                     }
                     else if(emoji == '⏮')
                     {
@@ -129,7 +145,7 @@ class Handler {
                     }
                     else if(emoji == '❌')
                     {
-                        nMsg.edit(new bot.RichEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
+                        nMsg.edit(new SafeEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
                         nMsg.reactions.removeAll();
                         bot.removeListener("messageReactionAdd", eventL);
                     }
@@ -149,14 +165,12 @@ class Handler {
             
             for (let x of prn)
             {
-                let embed = new bot.RichEmbed().setColor("#FFA500");
+                let embed = new SafeEmbed().setColor("#FFA500");
                 embed.setImage(x.thumb).setTitle(x.title).setURL(x.link).setFooter(`Długość: ${x.duration}`).setAuthor(`PornHub${gay ? ' Gay' : ''}`, "https://i.imgur.com/VVEYgqA.jpg",`https://pornhub.com${gay ? '/gayporn' : ''}`);
                 msg.channel.send(embed);
             }
 
-            if(prn.length == 0) msg.channel.send(new bot.RichEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            if(prn.length == 0) msg.channel.send(new SafeEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
         }
     }
 }
-
-export = Handler;
