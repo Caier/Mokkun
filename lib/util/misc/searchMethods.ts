@@ -5,7 +5,7 @@ export async function fromR34xxx(tags?: string) {
     async function getSrc(url: string)
     {
         let body = (await ax.get(url)).data;
-        let link = $("#image", body.toString()).attr('data-cfsrc');
+        let link = $("#image", body.toString()).attr('src');
         let tags = $("#image", body.toString()).attr('alt');
         if(link == undefined) {
             link = $("#gelcomVideoPlayer > source", body.toString()).attr('src');
