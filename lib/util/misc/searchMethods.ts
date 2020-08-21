@@ -1,11 +1,10 @@
-/// @ts-ignore
-import rp from 'request-promise';
+import ax, { AxiosRequestConfig } from 'axios';
 import $ from 'cheerio';
 
-export async function fromR34xxx(tags?: string, much?: number) {
+export async function fromR34xxx(tags?: string) {
     async function getSrc(url: string)
     {
-        let body = await rp(url, {encoding: null, rejectUnauthorized: false});
+        let body = (await ax.get(url)).data;
         let link = $("#image", body.toString()).attr('data-cfsrc');
         let tags = $("#image", body.toString()).attr('alt');
         if(link == undefined) {
@@ -20,41 +19,32 @@ export async function fromR34xxx(tags?: string, much?: number) {
     let imglinks: any[] = [];
     let ret = [];
     let rand;
-    much = (!much) ? 1 : (much > 10) ? 10 : much;
+    
     if(!tags) 
     {
-        for(let i = 0; i < much; i++)
-            ret.push(await getSrc(`http://rule34.xxx/index.php?page=post&s=random`));
+        ret.push(await getSrc(`http://rule34.xxx/index.php?page=post&s=random`));
         return ret;
     }
-    let body = await rp(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`, {encoding: null, rejectUnauthorized: false});
-    
+    let body = (await ax.get(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`)).data; 
     try {rand = parseInt($("#paginator > div > a", body.toString()).last().attr('href').replace(/[?A-z=&]/g," ").split(" ").pop());}
     catch (e) {rand = 0}
     if(rand > 200000) rand = 200000;
     rand = (rand > 42) ? Math.floor(Math.random() * (rand - 42)) : 0;
     
-    body = await rp(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, {encoding: null, rejectUnauthorized: false});
+    body = (await ax.get(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`)).data;
     $(".content > div > span a", body.toString()).each((i, elem) => {
         imglinks.push("http://rule34.xxx/" + $(elem).attr('href'));
     });
     
+    rand = Math.floor(Math.random() * (imglinks.length - 1));
+    ret.push(await getSrc(imglinks[rand]));
+    imglinks.splice(rand, 1);
     
-    if(much > imglinks.length) much = imglinks.length;
-    
-    for (let i = 0; i < much; i++)
-    {
-        rand = Math.floor(Math.random() * (imglinks.length - 1));
-        ret.push(await getSrc(imglinks[rand]));
-        imglinks.splice(rand, 1);
-    }
     return ret;
 }
 
-export async function fromGB(tags?: string, much?: number) {
-    let options = {
-        encoding: <any> null,
-        rejectUnauthorized: false,
+export async function fromGB(tags?: string) {
+    let options: AxiosRequestConfig = {
         headers: {
             'cookie': 'fringeBenefits=yup'
         } 
@@ -62,7 +52,7 @@ export async function fromGB(tags?: string, much?: number) {
     async function getSrc(url: string)
         {
             async function getComs(body: string, noRq?: boolean) {
-                if(!noRq) body = await rp(body, options);
+                if(!noRq) body = (await ax.get(body, options)).data;
                 
                 $(".commentBox", body.toString()).each((i,elem) => {
                     comments.push({
@@ -72,7 +62,7 @@ export async function fromGB(tags?: string, much?: number) {
                     });
                 });
             }
-            let body = await rp(url, options);
+            let body = (await ax.get(url, options)).data;
             let link = $("#image", body.toString()).attr('src');
             let tags = $("#image", body.toString()).attr('alt');
             let comments: any[] = [];
@@ -98,54 +88,48 @@ export async function fromGB(tags?: string, much?: number) {
         let imglinks: string[] = [];
         let ret = [];
         let rand;
-        much = (!much) ? 1 : (much > 10) ? 10 : much;
         
         if(!tags) 
         {
-            for(let i = 0; i < much; i++)
-                ret.push(await getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
+            ret.push(await getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
             return ret;
         }
         
-        let body = await rp(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`, options);
+        let body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`, options)).data;
         
         try {rand = parseInt($("#paginator > div > a", body.toString()).last().attr('href').replace(/[?A-z=&]/g," ").split(" ").pop());}
         catch (e) {rand = 0}
         if(rand > 19992) rand = 19992;
         rand = (rand > 42) ? Math.floor(Math.random() * (rand - 42)) : 0;
         
-        body = await rp(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, options);
+        body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, options)).data;
         
         $(".contain-push .thumbnail-preview > span a", body.toString()).each((i, elem) => {
             imglinks.push("http:" + $(elem).attr('href'));
         });
         
-        if(much > imglinks.length) much = imglinks.length;
-        
-        for (let i = 0; i < much; i++)
-        {
-            rand = Math.floor(Math.random() * (imglinks.length - 1));
-            ret.push(await getSrc(encodeURI(imglinks[rand])));
-            imglinks.splice(rand, 1);
-        }
+        rand = Math.floor(Math.random() * (imglinks.length - 1));
+        ret.push(await getSrc(encodeURI(imglinks[rand])));
+        imglinks.splice(rand, 1);
+    
         return ret;
 }
 
 export async function fromNH(src?: string, tags?: string) {
     async function fromSearch(tags: string)
     {
-        let body = await rp("https://nhentai.net/search/?q=" + encodeURI(tags.replace(/ /g, "+")), {encoding: null, rejectUnauthorized: false});
+        let body = (await ax.get("https://nhentai.net/search/?q=" + encodeURI(tags.replace(/ /g, "+")))).data;
         let max = Math.ceil(parseInt($("#content > h1", body.toString()).text().replace(/[ ,A-z]/g, "")) / 25);
         if(!max) return;
         
-        body = await rp(`https://nhentai.net/search/?q=${encodeURI(tags.replace(/ /g, "+"))}&page=${Math.floor(Math.random() * max) + 1}`, {encoding: null, rejectUnauthorized: false});
+        body = (await ax.get(`https://nhentai.net/search/?q=${encodeURI(tags.replace(/ /g, "+"))}&page=${Math.floor(Math.random() * max) + 1}`)).data;
         
         let elems = $("#content > div.container.index-container > div > a", body.toString()).get().length;
         return "https://nhentai.net" + $("#content > div.container.index-container > div > a", body.toString()).eq(Math.floor(Math.random() * elems)).attr('href');
     }
     let url = (src) ? src : (tags) ? await fromSearch(tags) : "https://nhentai.net/random";
     if(!url) return;
-    let body = await rp(url, {encoding: null, rejectUnauthorized: false});
+    let body = (await ax.get(url)).data;
     if(!body) return;
     let ret = {
         "link": "https://nhentai.net" + $("#cover > a", body.toString()).attr('href').slice(0, -2),
@@ -159,7 +143,7 @@ export async function fromNH(src?: string, tags?: string) {
 }
 
 export async function fromPH(gay?: boolean, tags?: string, much?: number) {
-    let body = await rp(`https://www.pornhub.com/${gay ? 'gay/' : ''}video/search?search=${encodeURI(tags.replace(/ /g, '+'))}`, {encoding: null, rejectUnauthorized: false, headers: {"user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)  Chrome/41.0.2228.0 Safari/537.36"}});
+    let body = (await ax.get(`https://www.pornhub.com/${gay ? 'gay/' : ''}video/search?search=${encodeURI(tags.replace(/ /g, '+'))}`, {headers: {"user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)  Chrome/41.0.2228.0 Safari/537.36"}})).data;
     try {body = body.toString();}
     catch (e) {return [];}
     let links: { link: string; title: string; thumb: string; duration: string; }[] = [];

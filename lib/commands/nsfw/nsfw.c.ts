@@ -10,27 +10,39 @@ export = H;
 @nsfw
 @group("NSFW")
 class H {
-    static async newPostReact(msg: c.m, tags: string, method: 'r34'|'gb', bot: c.b) {
+    static async newPostReact(msg: c.m, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
         await msg.react('🔄');
-        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && react.emoji.name == '🔄', {time: Utils.parseTimeStrToMilis('10m')});
-        coll.on('collect', react => {
-            msg.delete({timeout: 150});
-            react.remove();
-            coll.stop();
-            msg.content = `.${method} ${tags}`;
-            bot.commands.get(method).execute(msg, [method, tags], bot);
+        await msg.react('🔒');
+        let deletable = true;
+        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name), {time: Utils.parseTimeStrToMilis('10m')});
+        coll.on('collect', (react, user) => {
+            if(react.emoji.name == '🔒') {
+                if(user.id == author)
+                    deletable = false;
+                else
+                    react.users.remove(user);
+            }
+            else if(react.emoji.name == '🔄') {
+                if(deletable)
+                    msg.delete({timeout: 150});
+                react.remove();
+                coll.stop();
+                msg.content = `.${method} ${tags}`;
+                msg.author = user;
+                bot.commands.get(method).execute(msg, [method, tags], bot);
+            }
         });
     }
 
     @aliases('gelbooru')
-    @register('G E L B O O R U - obrazki thotów na wyciągnięcie ręki', '`$pgb {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam')
+    @register('G E L B O O R U - obrazki thotów na wyciągnięcie ręki', '`$pgb {wyszukanie}` - zobacz sam')
     static gb(msg: c.m, args: c.a, bot: c.b) {
         args = bot.getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#006ffa";
 
         msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => {
-            let imgs = (args[1] == '') ? await fromGB(null, args[2]) : (!args[1]) ? await fromGB() : (args[2]) ? await fromGB(args[1], args[2]) : await fromGB(args[1]); 
-     
+            let imgs = await fromGB(args[1]);
+
             for (let x of imgs) {
                 let embed: any = new SafeEmbed();
                 if(x.tags != "video") {
@@ -46,9 +58,9 @@ class H {
                     x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
                     let embs = emb.populateEmbeds();
                     let [, nmsg] = await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
-                    H.newPostReact(nmsg as c.m, args[1], 'gb', bot);
+                    H.newPostReact(nmsg as c.m, args[1], 'gb', bot, msg.author.id);
                 }
-                else msg.channel.send(embed).then(msg => H.newPostReact(msg, args[1], 'gb', bot));
+                else msg.channel.send(embed).then(nmsg => H.newPostReact(nmsg, args[1], 'gb', bot, msg.author.id));
             }
     
             if(imgs.length == 0)
@@ -59,24 +71,24 @@ class H {
     }
 
     @aliases('rule34')
-    @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam')
+    @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
     static r34(msg: c.m, args: c.a, bot: c.b) {
         args = bot.getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#e400e8";
 
         msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => 
         {
-            let imgs = (args[1] == '') ? await fromR34xxx(null, args[2]) : (!args[1]) ? await fromR34xxx() : (args[2]) ? await fromR34xxx(args[1], args[2]) : await fromR34xxx(args[1]);
-     
+            let imgs = await fromR34xxx(args[1]);
+
             for (let x of imgs)
             {
                 if(x.tags != "video")
                 {
                     let embed = new SafeEmbed();
                     embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.link).setColor(color).setAuthor("rule34", "https://i.imgur.com/vRZar64.png", "http://rule34.xxx/");
-                    msg.channel.send(embed).then(msg => H.newPostReact(msg, args[1], 'r34', bot));
+                    msg.channel.send(embed).then(mmsg => H.newPostReact(mmsg, args[1], 'r34', bot, msg.author.id));
                 } 
-                else msg.channel.send(x.link).then(msg => H.newPostReact(msg, args[1], 'r34', bot));
+                else msg.channel.send(x.link).then(mmsg => H.newPostReact(mmsg, args[1], 'r34', bot, msg.author.id));
             }
     
             if(imgs.length == 0) msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
