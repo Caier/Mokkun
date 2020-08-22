@@ -36,9 +36,11 @@ export async function fromR34xxx(tags?: string) {
         imglinks.push("http://rule34.xxx/" + $(elem).attr('href'));
     });
     
-    rand = Math.floor(Math.random() * (imglinks.length - 1));
-    ret.push(await getSrc(imglinks[rand]));
-    imglinks.splice(rand, 1);
+    if(imglinks.length > 0) {
+        rand = Math.floor(Math.random() * (imglinks.length - 1));
+        ret.push(await getSrc(imglinks[rand]));
+        imglinks.splice(rand, 1);
+    }
     
     return ret;
 }
@@ -47,7 +49,7 @@ export async function fromGB(tags?: string) {
     let options: AxiosRequestConfig = {
         headers: {
             'cookie': 'fringeBenefits=yup'
-        } 
+        }
     }
     async function getSrc(url: string)
         {
@@ -108,9 +110,11 @@ export async function fromGB(tags?: string) {
             imglinks.push("http:" + $(elem).attr('href'));
         });
         
-        rand = Math.floor(Math.random() * (imglinks.length - 1));
-        ret.push(await getSrc(encodeURI(imglinks[rand])));
-        imglinks.splice(rand, 1);
+        if(imglinks.length > 0) {
+            rand = Math.floor(Math.random() * (imglinks.length - 1));
+            ret.push(await getSrc(encodeURI(imglinks[rand])));
+            imglinks.splice(rand, 1);
+        }
     
         return ret;
 }
