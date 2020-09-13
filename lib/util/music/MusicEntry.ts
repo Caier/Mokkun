@@ -1,5 +1,4 @@
-import { GuildMember, StreamDispatcher } from "discord.js";
-import { MusicQueue } from "./MusicQueue";
+import { StreamDispatcher } from "discord.js";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { TrackEntry } from "@caier/sc/lib/interfaces";
 import uuid from 'uuid/v4';

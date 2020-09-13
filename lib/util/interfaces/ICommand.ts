@@ -1,4 +1,4 @@
-import { IExtMessage } from './IExtMsg';
+import { IExtMessage } from './DiscordExtended';
 import { PermissionString } from 'discord.js';
 import { Mokkun } from '../../mokkun';
 
