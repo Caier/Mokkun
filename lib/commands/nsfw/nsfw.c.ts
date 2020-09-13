@@ -3,14 +3,15 @@ import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethod
 import Utils from "../../util/utils";
 import { LoggedError } from "../../util/errors/errors";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import { MessageReaction, User } from "discord.js";
+import { Message, MessageReaction, User } from "discord.js";
+import { IExtMessage } from "../../util/interfaces/DiscordExtended";
 
 export = H;
 
 @nsfw
 @group("NSFW")
 class H {
-    static async newPostReact(msg: c.m, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
+    static async newPostReact(msg: Message, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
         await msg.react('🔄');
         await msg.react('🔒');
         let deletable = true;
@@ -29,7 +30,7 @@ class H {
                 coll.stop();
                 msg.content = `.${method} ${tags}`;
                 msg.author = user;
-                bot.commands.get(method).execute(msg, [method, tags], bot);
+                bot.commands.get(method).execute(msg as IExtMessage, [method, tags], bot);
             }
         });
     }
