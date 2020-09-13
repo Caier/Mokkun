@@ -7,8 +7,8 @@ import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
 import { LoggedError, SilentError } from './util/errors/errors';
-import { ICommand } from './util/interfaces/ICommand';
-import { IExtMessage } from './util/interfaces/IExtMsg';
+import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
+import { IExtMessage } from './util/interfaces/DiscordExtended';
 import Utils from './util/utils';
 
 const __mainPath = process.cwd();
@@ -108,7 +108,7 @@ export class Mokkun extends Discord.Client {
         super.login(this.vars.TOKEN).catch(() => this.reconnect());
         this.once("ready", () => this.setInterval(() => this.loops(), this.loopInterval));
         this.on("ready", () => this.onReady());
-        this.on("message", msg => this.onMessage(msg));
+        this.on("message", msg => this.onMessage(msg as IExtMessage));
         this.on("shardDisconnect", () => this.reconnect());
         this.on("error", err => console.error("Websocket error: " + err.message));
         this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
@@ -136,11 +136,13 @@ export class Mokkun extends Discord.Client {
 
     private async onMessage(msg: IExtMessage) {
         //🤡
-        if(msg.guild?.id == '426486206671355914' && Utils.rand(0, 250) == 8)
+        if(msg.guild?.id == '426486206671355914' && Utils.rand(0, 75) == 5)
             msg.react('🤡');
 
         let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
         msg.prefix = prefix;
+        msg.channel.data = this.db.Data?.[msg.channel.id];
+        msg.guild && (msg.guild.data = this.db.Data?.[msg.guild.id]);
 
         if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
             this.db.save(`Data.${msg.guild.id}.prefix`, ".");

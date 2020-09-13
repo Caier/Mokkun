@@ -1,7 +1,7 @@
 import { group, CmdParams as c, notdm, register, extend, aliases } from "../../util/cmdUtils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { MusicQueue } from "../../util/music/MusicQueue";
-import { TextChannel } from "discord.js";
+import { Message, TextChannel } from "discord.js";
 import yts from '@caier/yts';
 import sc from '@caier/sc';
 import { MusicEntry } from "../../util/music/MusicEntry";
@@ -9,6 +9,7 @@ import { TrackEntry } from "@caier/sc/out/interfaces";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { SilentError } from "../../util/errors/errors";
 import Utils from "../../util/utils";
+import { Playlist } from "../../util/music/Playlist";
 
 export = H;
 
@@ -52,12 +53,23 @@ class H {
         }
         else if(!args[1]) 
             return;
-        let vid = !fromSC ? (await yts(args[1]))?.videos?.[0] : (await sc.search(args[1]))?.tracks?.[0];
-        if(!vid) {
-            H.notFound(msg);
-            return;
+
+        if(/[?&]list=([^#\&\?]+)|^([a-zA-Z0-9-_]+)$/.test(args[1])) {
+            let vids = (await Playlist.fromYTlist(args[1], msg.author.username)).showEntries();
+            if(!vids.length) {
+                H.whatToPlay(msg, 'Ta playlista jest pusta');
+                return;
+            }
+            queue.addEntry(vids, top);
         }
-        queue.addEntry(new MusicEntry({vid: vid, by: msg.author.username, type: fromSC ? 'sc' : 'yt'}), top);
+        else {
+            let vid = !fromSC ? (await yts(args[1]))?.videos?.[0] : (await sc.search(args[1]))?.tracks?.[0];
+            if(!vid) {
+                H.notFound(msg);
+                return;
+            }
+            queue.addEntry(new MusicEntry({vid: vid, by: msg.author.username, type: fromSC ? 'sc' : 'yt'}), top);
+        }
     }
 
     @aliases('top')
@@ -100,7 +112,7 @@ class H {
             let eventL: any;
             setTimeout(() => bot.removeListener("message", eventL), 120000);
 
-            bot.on("message", eventL = async (rmsg: c.m) => {
+            bot.on("message", eventL = async (rmsg: Message) => {
                 if(rmsg.author.id != msg.author.id || rmsg.channel.id != msg.channel.id) return;
 
                 if(entries[+rmsg.content - 1]) {
@@ -292,4 +304,5 @@ class H {
         queue.queue = Utils.arrayShuffle(queue.queue);
         msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
     }
+
 }

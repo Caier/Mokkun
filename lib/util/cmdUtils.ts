@@ -1,5 +1,5 @@
 import { Mokkun } from "../mokkun";
-import { IExtMessage } from "./interfaces/IExtMsg";
+import { IExtMessage } from "./interfaces/DiscordExtended";
 import { PermissionString } from "discord.js";
 
 export namespace CmdParams {

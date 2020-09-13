@@ -9,9 +9,10 @@ import ytdl from 'ytdl-core-discord';
 import yts from '@caier/yts';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
-import { isArray } from "util";
 import ax from 'axios';
 import $ from 'cheerio';
+import { PlaylistManager } from "./PlaylistManager";
+import { IExtGuild } from "../interfaces/DiscordExtended";
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
@@ -21,6 +22,7 @@ export class MusicQueue extends BaseClient {
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
     private readonly maxHistory = 200;
+    playlistManager: PlaylistManager;
     queue: MusicEntry[] = [];
     history: IMusicHistory[];
     VoiceCon: VoiceConnection;
@@ -28,12 +30,12 @@ export class MusicQueue extends BaseClient {
     outChannel?: TextChannel;
     autoplay = false;
 
-    constructor(master: MokkunMusic, guild: Guild) { 
+    constructor(master: MokkunMusic, guild: IExtGuild) { 
         super();
         this.master = master;
-        this.history = (this.master.bot.db.Data?.[guild.id]?.music?.history || []) as IMusicHistory[];
-        this.queue = ((this.master.bot.db.Data?.[guild.id]?.music?.queue || []) as IMusicHistory[]).map(h => MusicEntry.fromJSON(h));
-        this.autoplay = this.master.bot.db.Data?.[guild.id]?.music?.autoplay || false;
+        this.history = (guild.data?.music?.history || []) as IMusicHistory[];
+        this.queue = ((guild.data?.music?.queue || []) as IMusicHistory[]).map(h => MusicEntry.fromJSON(h));
+        this.autoplay = guild.data?.music?.autoplay || false;
         this.watch();
     }
 
@@ -58,7 +60,7 @@ export class MusicQueue extends BaseClient {
     }
 
     addEntry(entry: MusicEntry | MusicEntry[], top: boolean) {
-        if(!isArray(entry))
+        if(!Array.isArray(entry))
             entry = [entry];
         if(top)
             this.queue.unshift(...entry);
