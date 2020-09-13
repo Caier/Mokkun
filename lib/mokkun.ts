@@ -136,7 +136,7 @@ export class Mokkun extends Discord.Client {
 
     private async onMessage(msg: IExtMessage) {
         //🤡
-        if(msg.guild?.id == '426486206671355914' && Utils.rand(0, 75) == 5)
+        if(msg.guild?.id == '752199572830552104' && Utils.rand(0, 250) == 8)
             msg.react('🤡');
 
         let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
