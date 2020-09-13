@@ -36,7 +36,8 @@
     "request-promise": "*",
     "typescript": "^3.8.3",
     "uuid": "^3.3.2",
-    "ytdl-core-discord": "^1.2.0"
+    "ytdl-core-discord": "^1.2.0",
+    "ytfps": "*"
   },
   "engines": {
     "node": "^12.x",
