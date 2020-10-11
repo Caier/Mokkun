@@ -54,7 +54,7 @@ class H {
         else if(!args[1]) 
             return;
 
-        if(/[?&]list=([^#\&\?]+)|^([a-zA-Z0-9-_]+)$/.test(args[1])) {
+        if(/[?&]list=([^#\&\?]+)/.test(args[1])) {
             let vids = (await Playlist.fromYTlist(args[1], msg.author.username)).showEntries();
             if(!vids.length) {
                 H.whatToPlay(msg, 'Ta playlista jest pusta');
