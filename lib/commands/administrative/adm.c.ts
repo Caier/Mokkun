@@ -1,6 +1,7 @@
 import { group, aliases, notdm, permissions, CmdParams as c, register } from "../../util/cmdUtils";
 import Utils from '../../util/utils';
 import { Message } from "discord.js";
+import { IExtTextChannel } from "../../util/interfaces/DiscordExtended";
 
 @notdm
 @group("Administracyjne")
@@ -120,7 +121,7 @@ class Handler {
                 {
                     msg.delete({timeout: 150});
                     msgg.delete({timeout: 150});
-                    msg.channel.bulkDelete(msgss).catch(async () => {
+                    (msg.channel as IExtTextChannel).bulkDelete(msgss).catch(async () => {
                         let nmsg: Message;
                         await msg.channel.send(bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
                         let jobs: Promise<any>[] = [];

@@ -5,6 +5,7 @@ import { TextChannel } from 'discord.js';
 import files from './files';
 
 export async function _newsletter(bot: Mokkun) {
+    return;
     if(bot.loopExecCount % 15 != 0) return;
     let prevRes: any = (fs.existsSync(files.prevRes)) ? fs.readFileSync(files.prevRes).toString() : "{}";
     prevRes = JSON.parse(prevRes);
