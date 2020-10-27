@@ -18,6 +18,7 @@
     "@caier/sc": "latest",
     "@caier/yts": "latest",
     "@discordjs/opus": "^0.1.0",
+    "@types/cheerio": "^0.22.22",
     "@types/fs-extra": "^8.1.1",
     "@types/node": "^13.13.29",
     "@types/request-promise": "^4.1.46",

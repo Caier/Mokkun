@@ -213,8 +213,8 @@ export class Mokkun extends Discord.Client {
         return new SafeEmbed().setColor(!random ? color : Math.floor(Math.random() * 0xFFFFFF)).setDescription(content);
     }
 
-    emb(content: string, color = this.sysColor, random?: boolean) {
-        return this.embgen(color, content, random);
+    emb(content: string, color: string|number = this.sysColor, inAuthor?: boolean, random?: boolean) {
+        return !inAuthor ? this.embgen(color, content, random) : this.embgen(color, content, random).setDescription('').setAuthor(content);
     }
 
     sendHelp(msg: IExtMessage, command: string) {
