@@ -5,6 +5,7 @@ import { SafeEmbed } from '../../util/embed/SafeEmbed';
 import { MessageReaction, User, TextChannel, Message } from 'discord.js';
 import Utils from '../../util/utils';
 import { SilentError } from '../../util/errors/errors';
+import { SIPResponse } from '../../util/interfaces/ztm';
 
 export = H;
 
@@ -18,7 +19,7 @@ class H {
         return [msg, args, bot];
     }
 
-    static genEstEmb(data: any) {
+    static genEstEmb(data: SIPResponse) {
         if(!data) return;
         let veh = H.veh;
         for (let i of data.estimates) {
@@ -35,14 +36,15 @@ class H {
         }
         return new SafeEmbed().setColor(13632027)
         .setAuthor(`${data.stopName} ${data.stopNumer} (id: ${data.numerTras})`)
-        .setDescription((data.updated) ? 'updated stops.json' : '\u200b')
-        .addFields(!data.estimates.length ? [{name: '\u200b', value: "Brak danych o najbliższych odjazdach"}]
-        : data.estimates.map((i: any) => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.estTime}**`})));
+        .setDescription('\u200b')
+        .addFields(!data.estimates.length ? [{name: '\u200b', value: "brak odjazdów w przeciągu 30 min."}]
+        : data.estimates.map(i => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.relativeTime > 0 ? `za ${i.relativeTime} min. **[${i.estTime}]` : '**>>>>**'}`})));
     }
 
     @register('szacowane czasy odjazdy dla danego przystanku', '`$pztm {skrócona nazwa przystanku np. \'pias3\' (Piastowska 3) lub ID przystanku}`')
     static async ztm(msg: c.m, args: c.a, bot: c.b) {
         args = bot.newArgs(msg, {freeargs: 1});
+
         let send = (cont: any, ID: string|number) =>
             msg.channel.send(cont).then(async nmsg => {
                 await nmsg.react('🔄');
@@ -52,6 +54,7 @@ class H {
                     nmsg.edit(H.genEstEmb(await ztm.getSIP(ID)));
                 })
             });
+
         if(/^\d+$/.test(args[1]))
             send(H.genEstEmb(await ztm.getSIP(args[1])), args[1]);
         else if(args[1]) {

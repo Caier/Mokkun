@@ -38,13 +38,14 @@ export async function getSIP(IDprzystanku: number|string): Promise<SIPResponse> 
         stopName: stopName,
         stopNumer: stopNumer,
         numerTras: IDprzystanku,
-        estimates: resp.delay.map((d: any) => (<SIPDelay> {
+        estimates: resp.delay.map((d: any) => <SIPDelay> {
             routeId: d.routeId,
             headsign: d.headsign,
             estTime: d.estimatedTime,
             vehId: d.vehicleCode,
-            delay: d.delayInSeconds
-        }))
+            delay: d.delayInSeconds,
+            relativeTime: (Utils.HMStoMilis(d.estimatedTime, 60) - Utils.HMStoMilis(resp.lastUpdate.slice(-8, -3), 60)) / 60000
+        })
     };
 }
 

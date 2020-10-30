@@ -28,6 +28,20 @@ namespace Utils {
     }
 
     /**
+     * Converts H:M:S time format to milis
+     * @param timeStr H:M:S string
+     * @param splitter if you want to use other splitter than ':'
+     * @param secsInLast how many seconds is one unit of the rightmost number
+     */
+    export function HMStoMilis(timeStr: string, secsInLast = 1, splitter = ':') {
+        let timeArr = timeStr.trim().split(splitter).reverse();
+        let secs = 0;
+        for(let i = 0, m = secsInLast; i < timeArr.length; i++, m *= 60)
+            secs += +timeArr[i] * m;
+        return secs * 1000;
+    }
+
+    /**
      * Fetches messages from a Discord TextChannel
      * @param msg A message object
      * @param much How many messages should be fetched
