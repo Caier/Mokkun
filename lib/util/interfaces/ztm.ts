@@ -9,6 +9,7 @@ export interface SIPDelay {
     routeId: string|number
     headsign: string
     estTime: string
+    relativeTime: number
     vehId: number|string
     delay: number
 }
