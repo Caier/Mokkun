@@ -33,11 +33,12 @@
     "fs-extra": "^8.1.0",
     "is-online": "^8.5.1",
     "nodeJs-zip": "^1.0.4",
+    "prism-media": "^1.2.2",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
     "typescript": "^3.9.7",
     "uuid": "^3.4.0",
-    "ytdl-core-discord": "^1.2.4",
+    "ytdl-core": "latest",
     "ytfps": "latest"
   },
   "engines": {
