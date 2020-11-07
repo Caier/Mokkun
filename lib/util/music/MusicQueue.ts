@@ -5,7 +5,6 @@ import { TrackEntry } from "@caier/sc/out/interfaces";
 import { Readable } from "stream";
 import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
-import ytdl from 'ytdl-core-discord';
 import yts from '@caier/yts';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
@@ -13,6 +12,7 @@ import ax from 'axios';
 import $ from 'cheerio';
 import { PlaylistManager } from "./PlaylistManager";
 import { IExtGuild } from "../interfaces/DiscordExtended";
+import { getOpusStream } from "./OpusStreamFinder";
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
@@ -137,7 +137,7 @@ export class MusicQueue extends BaseClient {
             this.tryingToPlay = true;
             let str;
             if(entry.type == 'yt')
-                str = await ytdl(entry.videoInfo.url, {quality: 'highestaudio', highWaterMark: 1<<25});
+                str = await getOpusStream(entry.videoInfo.url, {quality: 'highestaudio', highWaterMark: 1<<25});
             else if(entry.type == 'sc')
                 str = await sc.download((entry.videoInfo as TrackEntry).id, true);
             (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
