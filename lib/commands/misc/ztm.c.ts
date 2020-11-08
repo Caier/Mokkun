@@ -6,41 +6,35 @@ import { MessageReaction, User, TextChannel, Message } from 'discord.js';
 import Utils from '../../util/utils';
 import { SilentError } from '../../util/errors/errors';
 import { SIPResponse } from '../../util/interfaces/ztm';
+import files from '../../util/misc/files';
+
+const veh = JSON.parse(fs.readFileSync(files.pojazdy).toString());
+
+function genEstEmb(data: SIPResponse): SafeEmbed {
+    if(!data) return;
+    for (let i of data.estimates) {
+        i.routeId = i.routeId.toString();
+        if(['4', '8'].includes(i.routeId[0]) && i.routeId.length >= 2) 
+            i.routeId = ((i.routeId[0] === '4') ? 'N' : 'T') + i.routeId.slice((i.routeId[1] === '0') ? 2 : 1);
+        mainl:
+        for (let z in veh)
+            for (let x in veh[z])
+                if (veh[z][x].numbers.includes(i.vehId)) {
+                    i.vehId = (veh[z][x].type != "") ? `${veh[z][x].type} - ${veh[z][x].model} [${i.vehId}]` : `${veh[z][x].model} [${i.vehId}]`;
+                    break mainl;
+                }
+    }
+    return new SafeEmbed().setColor(13632027)
+    .setAuthor(`${data.stopName} ${data.stopNumer} (id: ${data.numerTras})`)
+    .setDescription('\u200b')
+    .addFields(!data.estimates.length ? [{name: '\u200b', value: "brak odjazdów w przeciągu 30 min."}]
+    : data.estimates.map(i => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.relativeTime > 0 ? `za ${i.relativeTime} min. **[${i.estTime}]` : '>>>>**'}`})));
+}
 
 export = H;
 
 @group('ZTM')
-@extend(H.mod)
 class H {
-    static veh: any;
-    static mod(msg: c.m, args: c.a, bot: c.b) {
-        if(!H.veh)
-            H.veh = JSON.parse(fs.readFileSync(bot.db.get(`System.files.pojazdy`)).toString() || "{}");
-        return [msg, args, bot];
-    }
-
-    static genEstEmb(data: SIPResponse) {
-        if(!data) return;
-        let veh = H.veh;
-        for (let i of data.estimates) {
-            i.routeId = i.routeId.toString();
-            if(['4', '8'].includes(i.routeId[0]) && i.routeId.length >= 2) 
-                i.routeId = ((i.routeId[0] === '4') ? 'N' : 'T') + i.routeId.slice((i.routeId[1] === '0') ? 2 : 1);
-            mainl:
-            for (let z in veh)
-                for (let x in veh[z])
-                    if (veh[z][x].numbers.includes(i.vehId)) {
-                        i.vehId = (veh[z][x].type != "") ? `${veh[z][x].type} - ${veh[z][x].model} [${i.vehId}]` : `${veh[z][x].model} [${i.vehId}]`;
-                        break mainl;
-                    }
-        }
-        return new SafeEmbed().setColor(13632027)
-        .setAuthor(`${data.stopName} ${data.stopNumer} (id: ${data.numerTras})`)
-        .setDescription('\u200b')
-        .addFields(!data.estimates.length ? [{name: '\u200b', value: "brak odjazdów w przeciągu 30 min."}]
-        : data.estimates.map(i => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.relativeTime > 0 ? `za ${i.relativeTime} min. **[${i.estTime}]` : '**>>>>**'}`})));
-    }
-
     @register('szacowane czasy odjazdy dla danego przystanku', '`$pztm {skrócona nazwa przystanku np. \'pias3\' (Piastowska 3) lub ID przystanku}`')
     static async ztm(msg: c.m, args: c.a, bot: c.b) {
         args = bot.newArgs(msg, {freeargs: 1});
@@ -51,12 +45,12 @@ class H {
                 let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot, {time: 86400000});
                 coll.on('collect', async (react, user) => {
                     if(nmsg.channel instanceof TextChannel) react.users.remove(user.id);
-                    nmsg.edit(H.genEstEmb(await ztm.getSIP(ID)));
+                    nmsg.edit(genEstEmb(await ztm.getSIP(ID)));
                 })
             });
 
         if(/^\d+$/.test(args[1]))
-            send(H.genEstEmb(await ztm.getSIP(args[1])), args[1]);
+            send(genEstEmb(await ztm.getSIP(args[1])), args[1]);
         else if(args[1]) {
             let result = await ztm.getShort(args[1]).catch(err => {
                 msg.channel.send(bot.emb('Wyszukanie nie spełnia wymogów', 13632027, true).setDescription('Wyszukanie musi składać się z min. 3 znaków. \nPrzykłady:\n`pomo` - wyszuka wszystki przystanki, które zaczynają się od, lub zawierają w sobie "pomo"\n\n`oli1` lub `oli01` lub `oli 1` lub `oli 01` - tak jak poprzednio, dodatkowo odfiltruje przystanki których numer jest inny niż 1\n\n`dwo gł` lub `d g` lub `d g 4` lub `d g4`- wyszuka wszystkie przystanki, których kolejne słowa w nazwie zaczynają się od podanych liter rozdzielonych spacją'));
@@ -67,7 +61,7 @@ class H {
                 return;
             }
             else if(result.length == 1)
-                send(H.genEstEmb(await result[0].delay()), result[0].stopId);
+                send(genEstEmb(await result[0].delay()), result[0].stopId);
             else {
                 let prz = "";
                 for(let x = 0; x < result.length; x++)
@@ -80,7 +74,7 @@ class H {
                     coll.on('collect', async rmsg => {
                         remsg = rmsg;
                         if(!isNaN(+rmsg.content) && +rmsg.content >= 0 && +rmsg.content < result.length) {
-                            send(H.genEstEmb(await result[+rmsg.content].delay()), result[+rmsg.content].stopId);
+                            send(genEstEmb(await result[+rmsg.content].delay()), result[+rmsg.content].stopId);
                             coll.stop();
                         }
                         else if(rmsg.content == 'stop')

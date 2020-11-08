@@ -5,6 +5,8 @@ import fs from 'fs-extra';
 import path from 'path';
 import ax from 'axios';
 import Utils from '../../util/utils';
+import files from "../../util/misc/files";
+import { DB } from '../../mokkun';
 import cp from 'child_process';
 
 @ownerOnly
@@ -12,6 +14,8 @@ import cp from 'child_process';
 class Handler {
     @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
     static eval(msg: c.m, args: c.a, bot: c.b) {
+        const imports = {fs, path, ax, Utils, files, DB, cp};
+        
         const print = (cont: any, opts?: any) => msg.channel.send(cont, opts);
 
         let code = msg.content.slice(msg.prefix.length + this.name.length);

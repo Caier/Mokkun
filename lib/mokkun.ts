@@ -10,8 +10,12 @@ import { LoggedError, SilentError } from './util/errors/errors';
 import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
 import { IExtMessage } from './util/interfaces/DiscordExtended';
 import Utils from './util/utils';
+import { Database } from './util/database/Database';
+import { IDatabase } from './util/database/IDatabaseData';
 
 const __mainPath = process.cwd();
+
+export let DB: IDatabase;
 
 export class Mokkun extends Discord.Client {
     private reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
@@ -25,14 +29,15 @@ export class Mokkun extends Discord.Client {
     sysColor = '#FFFFFE';
     commands: Discord.Collection<string, ICommand>;
     vars: any;
-    db: any;
+    db: IDatabase;
 
     constructor(vars?: object) {
         super();
         this.vars = Object.assign({}, process.env, vars);
         this.ensureVars();
         this.ensureDirs();
-        this.db = this.loadDatabase(this.vars.DB_PATH);
+        this.db = new Database(this.vars.DB_PATH).instance;
+        DB = this.db;
         this.commands = this.loadCommands();
         this.start();
         this.handleLoggedErrors();
@@ -47,39 +52,6 @@ export class Mokkun extends Discord.Client {
     private ensureDirs() {
         for(let dir of this.reqDirs)
             fs.ensureDirSync(dir);
-    }
-
-    private loadDatabase(db_path: string) {
-        if(!db_path) db_path = `files/temp/${new Date().toISOString().replace(/[^A-z0-9]/g, "")}.db`;
-        let db = JSON.parse(fs.existsSync(path.join(__mainPath, db_path)) && fs.readFileSync(path.join(__mainPath, db_path)).toString() || "{}");
-        if(Object.entries(db).length == 0) {
-            console.log("Starting with an empty database!");
-            fs.writeFileSync(path.join(__mainPath, db_path), "{}");
-        }
-
-        db.get = (query: any) => {
-            query = query.split(".");
-            let temp = db[query.shift()];
-            for(let q of query)
-                if(temp === undefined) 
-                    break;
-                else   
-                    temp = temp[q];
-            return temp;
-        }
-        db.save = (query: any, data: any) => {
-            query = query.split(".");
-            let temp = db;
-            for(let q of query.slice(0, -1)) {
-                if(temp[q] === undefined) 
-                    temp[q] = {};
-                temp = temp[q]
-            }
-            temp[query.slice(-1)] = data;
-            fs.writeFileSync(path.join(__mainPath, db_path), JSON.stringify(db, null, 2));
-        }
-        
-        return db;
     }
 
     private loadCommands() {
