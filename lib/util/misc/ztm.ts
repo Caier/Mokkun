@@ -44,7 +44,7 @@ export async function getSIP(IDprzystanku: number|string): Promise<SIPResponse> 
             estTime: d.estimatedTime,
             vehId: d.vehicleCode,
             delay: d.delayInSeconds,
-            relativeTime: (Utils.HMStoMilis(d.estimatedTime, 60) - Utils.HMStoMilis(new Date().toLocaleTimeString([], {timeZone: 'Europe/Warsaw'}).slice(0, -3), 60)) / 60000
+            relativeTime: (Utils.HMStoMilis(d.estimatedTime, 60) - Utils.HMStoMilis(new Date().toLocaleTimeString([], {timeZone: 'Europe/Warsaw', hour12: false}).slice(0, -3), 60)) / 60000
         })
     };
 }
