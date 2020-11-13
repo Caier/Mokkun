@@ -1,6 +1,7 @@
 import { Mokkun } from "../mokkun";
 import { IExtMessage } from "./interfaces/DiscordExtended";
-import { PermissionString } from "discord.js";
+import { Collection, PermissionString } from "discord.js";
+import { ICommand } from "./interfaces/ICommand";
 
 export namespace CmdParams {
     export type m = IExtMessage;
@@ -71,6 +72,11 @@ export function nsfw(target: any, propKey?: string) {
     else initProps(target, propKey).nsfw = true;
 }
 
+export function deprecated(target: any, propKey?: string) {
+    if(!propKey) applyToAll(target, 'deprecated', true);
+    else initProps(target, propKey).deprecated = true;
+}
+
 export function extend(transFn: any) {
     return function modify(target: any) {
         if(!transFn) throw Error("Modyfying method not found");
@@ -81,5 +87,25 @@ export function extend(transFn: any) {
                 await temp(...transFn(msg, args, bot));
             }
         }
+    }
+}
+
+export function subcommandGroup(desc: string, ...handlers: any[]) {
+    return function(target: any) {
+        let subcmds = Object.entries(target).filter(e => e[0].startsWith('_')).map(e => e[1]) as ICommand[];
+        let scMap = new Collection<string, ICommand>();
+        for(let cmd of subcmds) {
+            scMap.set(cmd.name, cmd);
+            cmd.aliases?.forEach(a => scMap.set(a, cmd));
+        }
+        handlers[0]['_' + target.name] = <ICommand> {
+            name: target.name,
+            description: desc,
+            subcommandGroup: true,
+            subcommands: scMap
+        }
+        
+        for(let i = 1; i < handlers.length; i++)
+            subcommandGroup(handlers[i]['_' + handlers[i - 1].name].description, ...handlers.slice(i))(handlers[i - 1]);
     }
 }

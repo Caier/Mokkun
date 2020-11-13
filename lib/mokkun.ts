@@ -1,4 +1,4 @@
-import Discord, { TextChannel } from 'discord.js';
+import Discord, { Collection, TextChannel } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import isOnline from 'is-online';
@@ -27,7 +27,7 @@ export class Mokkun extends Discord.Client {
     music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
     sysColor = '#FFFFFE';
-    commands: Discord.Collection<string, ICommand>;
+    commands: Collection<string, ICommand>;
     vars: any;
     db: IDatabase;
 
@@ -36,7 +36,7 @@ export class Mokkun extends Discord.Client {
         this.vars = Object.assign({}, process.env, vars);
         this.ensureVars();
         this.ensureDirs();
-        this.db = new Database(this.vars.DB_PATH).instance;
+        this.db = Database.getInstance(this.vars.DB_PATH).DBinstance;
         DB = this.db;
         this.commands = this.loadCommands();
         this.start();
@@ -55,22 +55,15 @@ export class Mokkun extends Discord.Client {
     }
 
     private loadCommands() {
-        let cmds = new Discord.Collection<string, ICommand>();
+        let cmds = new Collection<string, ICommand>();
         let cmdFiles = Util.dirWalk(this.cmdDir).filter(f => f.endsWith('.c.js'));
         for(let cmd of cmdFiles) {
-            let temp = require(path.join(this.cmdDir, cmd)) as any;
-            if(typeof temp.description == 'string') {
-                let cmdNames = [temp.name];
-                temp.aliases && cmdNames.push(...temp.aliases);
-                for(let alias of cmdNames)
-                    cmds.set(alias, temp);
-            } else {
-                for(let prop in temp) {
-                    if(!prop.startsWith("_")) continue;
-                    temp[prop].aliases = [temp[prop].name, ...(temp[prop].aliases || [])];
-                    for(let alias of temp[prop].aliases)
-                        cmds.set(alias, temp[prop]);
-                }
+            let temp = require(path.join(this.cmdDir, cmd)).default as ICmdGroup;
+            for(let prop in temp) {
+                if(!prop.startsWith("_")) continue;
+                temp[prop].aliases = [temp[prop].name, ...(temp[prop].aliases || [])];
+                for(let alias of temp[prop].aliases)
+                    cmds.set(alias, temp[prop]);
             }
         }
         return cmds;
@@ -124,23 +117,36 @@ export class Mokkun extends Discord.Client {
         if(!msg.content.startsWith(prefix) || msg.author.bot) return;
         let args = this.getArgs(msg.content, prefix);
         if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
-            msg.channel.send(this.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`)).then(nmsg => this.setTimeout(() => nmsg.delete({timeout: 150}), 3000));
+            msg.channel.send(this.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`));
             return;
         }
 
+        await this.executeCommand(msg, args);
+    }
+
+    private async executeCommand(msg: IExtMessage, args: string[], commandScope = this.commands, helpPath: string[] = []) {
+        const reason = (r: string) => msg.channel.send(this.emb(r));
+
         try {
-            if(this.commands.has(args[0])) {
-                let cmd = this.commands.get(args[0]);
-                if(cmd.ownerOnly && msg.author.id != this.vars.BOT_OWNER)
-                    msg.channel.send(this.embgen(this.sysColor, "**Z tej komendy może korzystać tylko owner bota!**"));
+            if(commandScope.has(args[0])) {
+                let cmd = commandScope.get(args[0]);
+                if(cmd.deprecated)
+                    reason("**Ta komenda została wyłączona**");
+                else if(cmd.ownerOnly && msg.author.id != this.vars.BOT_OWNER)
+                    reason("**Z tej komendy może korzystać tylko owner bota!**");
                 else if(msg.guild && cmd.nsfw && !(msg.channel as TextChannel).nsfw)
-                    msg.channel.send(this.emb("**Ten kanał nie pozwala na wysyłanie wiadomości NSFW!**"));
+                    reason("**Ten kanał nie pozwala na wysyłanie wiadomości NSFW!**");
                 else if(cmd.notdm && msg.channel.type == 'dm')
-                    msg.channel.send(this.embgen(this.sysColor, "**Z tej komendy nie można korzystać na PRIV!**"));
+                    reason("**Z tej komendy nie można korzystać na PRIV!**");
                 else if(msg.guild && cmd.permissions && !cmd.permissions.every(perm => msg.member.permissionsIn(msg.channel).has(perm)))
-                    msg.channel.send(this.embgen(this.sysColor, `**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissionsIn(msg.channel).has(p)).join("\n")}`));
+                    reason(`**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissionsIn(msg.channel).has(p)).join("\n")}`);
+                else if(cmd.subcommandGroup)
+                    await this.executeCommand(msg, args.slice(1), cmd.subcommands, helpPath.push(cmd.name) && helpPath);
                 else 
                     await cmd.execute(msg, args, this);
+            }
+            else if(helpPath.length) {
+                this.sendHelp(msg, helpPath);
             }
         }
         catch(err) {
@@ -189,7 +195,7 @@ export class Mokkun extends Discord.Client {
         return !inAuthor ? this.embgen(color, content, random) : this.embgen(color, content, random).setDescription('').setAuthor(content);
     }
 
-    sendHelp(msg: IExtMessage, command: string) {
-        this.commands.get('?').execute(msg, ['?', command], this);
+    sendHelp(msg: IExtMessage, command: string | string[]) {
+        this.commands.get('?').execute(msg, ['?', ...Array.isArray(command) ? command : [command]], this);
     }
 }

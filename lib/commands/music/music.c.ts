@@ -1,4 +1,4 @@
-import { group, CmdParams as c, notdm, register, extend, aliases } from "../../util/cmdUtils";
+import { group, CmdParams as c, notdm, register, extend, aliases, deprecated } from "../../util/cmdUtils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { MusicQueue } from "../../util/music/MusicQueue";
 import { Message, TextChannel } from "discord.js";
@@ -11,12 +11,10 @@ import { SilentError } from "../../util/errors/errors";
 import Utils from "../../util/utils";
 import { Playlist } from "../../util/music/Playlist";
 
-export = H;
-
 @notdm
 @extend(H.modify)
 @group("Muzyka")
-class H {
+export default class H {
     static modify(msg: c.m, args: c.a, bot: c.b) {
         return [msg, bot.newArgs(msg, {freeargs: 1}), bot, 
                 bot.music.getQueue(msg.guild).setOutChan(msg.channel as TextChannel)];
@@ -293,6 +291,7 @@ class H {
         }
     }
 
+    @deprecated
     @aliases('aplay')
     @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
     static async autoplay(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {

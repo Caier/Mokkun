@@ -1,6 +1,6 @@
 import * as ztm from '../../util/misc/ztm';
 import fs from 'fs';
-import { register, CmdParams as c, group, extend, permissions } from '../../util/cmdUtils';
+import { register, CmdParams as c, group, extend, permissions, deprecated } from '../../util/cmdUtils';
 import { SafeEmbed } from '../../util/embed/SafeEmbed';
 import { MessageReaction, User, TextChannel, Message } from 'discord.js';
 import Utils from '../../util/utils';
@@ -31,10 +31,8 @@ function genEstEmb(data: SIPResponse): SafeEmbed {
     : data.estimates.map(i => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.relativeTime > 0 ? `za ${i.relativeTime} min. **[${i.estTime}]` : '>>>>**'}`})));
 }
 
-export = H;
-
-@group('ZTM')
-class H {
+@group('Komunikacyjne')
+export default class {
     @register('szacowane czasy odjazdy dla danego przystanku', '`$pztm {skrócona nazwa przystanku np. \'pias3\' (Piastowska 3) lub ID przystanku}`')
     static async ztm(msg: c.m, args: c.a, bot: c.b) {
         args = bot.newArgs(msg, {freeargs: 1});
@@ -91,6 +89,7 @@ class H {
             bot.sendHelp(msg, 'ztm');
     }
 
+    @deprecated
     @permissions('MANAGE_CHANNELS')
     @register('subskrybuje sytuację komunikacyjną ZTM', '`$pztmsub`')
     static ztmsub(msg: c.m, args: c.a, bot: c.b) {

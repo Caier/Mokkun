@@ -1,10 +1,8 @@
 import { group, aliases, register, CmdParams as c } from "../../util/cmdUtils";
 import Utils from "../../util/utils";
 
-export = H;
-
 @group('Interakcja')
-class H {
+export default class H {
     private static selPhrases = [[1, '| to najlepszy wybór!'], [1, 'Wybieram |'], [0.7, '| brzmi nieźle!'], [0.7, 'Oczywiście, że |'], [0.5, 'Hmm..., |'], [0.3, 'Osobiście wybrałbym |, ale nie mam pewności...']];
     private static choosePhrase(choice: string, from: [number, string][]) {
         let luck = Math.random();

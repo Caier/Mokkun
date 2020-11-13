@@ -5,7 +5,7 @@ const usage = `\`$premind add {gdzie (może być puste == tutaj)} {za ile? przyk
                 \`$premind rem {id przypomnienia} - usuwa\`\n\`$premind list\` - listuje przypomnienia'`
 
 @group("Przypomnienia")
-class Handler {
+export default class {
     @aliases('rem')
     @register('Tworzenie i zarządzanie przypomnieniami', usage)
     static remind(msg: c.m, args: c.a, bot: c.b) {
@@ -88,5 +88,3 @@ class Handler {
         }
     }
 }
-
-export = Handler;

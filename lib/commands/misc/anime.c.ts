@@ -2,11 +2,9 @@ import { group, aliases, register, CmdParams as c, extend } from "../../util/cmd
 import ax from 'axios';
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 
-export = H;
-
 @group('Anime')
 @extend(H.modify)
-class H {
+export default class H {
     static modify(msg: c.m, args: c.a, bot: c.b) {
         return [msg, bot.newArgs(msg, {freeargs: 1}), bot];
     }
