@@ -5,7 +5,7 @@ import { IExtTextChannel } from "../../util/interfaces/DiscordExtended";
 
 @notdm
 @group("Administracyjne")
-class Handler {
+export default class {
     @aliases('prefix')
     @permissions("MANAGE_GUILD")
     @register('Zmienia prefix komend dla serwera', '`$psetprefix {nowy prefix}`')
@@ -141,5 +141,3 @@ class Handler {
         });
     }
 }
-
-export = Handler;

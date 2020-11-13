@@ -10,8 +10,8 @@ import { DB } from '../../mokkun';
 import cp from 'child_process';
 
 @ownerOnly
-@group("Bot owner")
-class Handler {
+@group("BotOwner")
+export default class {
     @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
     static eval(msg: c.m, args: c.a, bot: c.b) {
         const imports = {fs, path, ax, Utils, files, DB, cp};
@@ -54,5 +54,3 @@ class Handler {
         });
     }
 }
-
-export = Handler;

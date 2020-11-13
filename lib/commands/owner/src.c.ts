@@ -6,8 +6,8 @@ import path from 'path';
 import rp from 'request-promise';
 
 @ownerOnly
-@group("Bot owner")
-class Handler {
+@group("BotOwner")
+export default class {
     @register('ściąga pliki źródłowe i dane bota', '`$psrc ls` - wysyła listę plików w katalogu głównym bota\n`$psrc ls {ścieżka katalogu}` - wysyła listę plików w podanym katalogu\n`$psrc dl {ścieżka do pliku}` - wysyła podany plik, o ile plik nie jest oznaczony jako tajny\n`$psrc rm {ścieżka pliku}` - usuwa plik lub katalog, *tylko owner bota*\n`$psrc up` - wysyła plik do systemu plików bota - *tylko owner bota*')
     static src(msg: c.m, args: c.a, bot: c.b)
     {
@@ -77,5 +77,3 @@ class Handler {
         }
     }
 }
-
-export = Handler;

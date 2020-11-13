@@ -1,4 +1,4 @@
-import { group, aliases, register, CmdParams as c, nsfw } from "../../util/cmdUtils";
+import { group, aliases, register, CmdParams as c, nsfw, deprecated } from "../../util/cmdUtils";
 import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { LoggedError } from "../../util/errors/errors";
@@ -6,11 +6,9 @@ import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { Message, MessageReaction, User } from "discord.js";
 import { IExtMessage } from "../../util/interfaces/DiscordExtended";
 
-export = H;
-
 @nsfw
 @group("NSFW")
-class H {
+export default class H {
     static async newPostReact(msg: Message, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
         await msg.react('🔄');
         await msg.react('🔒');
@@ -166,6 +164,7 @@ class H {
             });
     }
 
+    @deprecated
     @aliases('pornhub')
     @register('Wyszukiwarka PornHuba', '`$pph {wyszukanie} | (opcjonalnie){ilość wyników max. 5}` - zobacz sam')
     static async ph(msg: c.m, args: c.a, bot: c.b) {

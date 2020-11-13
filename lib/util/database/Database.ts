@@ -6,19 +6,25 @@ import { BaseClient } from "discord.js";
 export class Database extends BaseClient {
     private readonly dbWatchInterval = 5000;
     private dbPath: string;
-    readonly instance: IDatabase;
+    readonly DBinstance: IDatabase;
+    private static pubInst: Database;
 
     get absoluteDbPath() {
         return path.join(process.cwd(), this.dbPath);
     }
 
-    constructor(dbPath?: string) {
+    private constructor(dbPath?: string) {
         super();
         this.dbPath = dbPath;
-        this.instance = this.prepareDb();
+        this.DBinstance = this.prepareDb();
         this.watchDbForChanges();
         this.addInstanceGetSave();
+    }
 
+    static getInstance(dbPath?: string) {
+        if(!this.pubInst)
+            this.pubInst = new Database(dbPath);
+        return this.pubInst;
     }
 
     private prepareDb(): IDatabase {
@@ -32,9 +38,9 @@ export class Database extends BaseClient {
     }
 
     private addInstanceGetSave() {
-        this.instance.get = (query) => {
+        this.DBinstance.get = (query) => {
             let qy = query.split(".");
-            let temp = this.instance[qy.shift()];
+            let temp = this.DBinstance[qy.shift()];
             for(let q of qy)
                 if(temp === undefined) 
                     break;
@@ -43,9 +49,9 @@ export class Database extends BaseClient {
             return temp;
         };
 
-        this.instance.save = (query, data) => {
+        this.DBinstance.save = (query, data) => {
             let qy = query.split(".");
-            let temp = this.instance;
+            let temp = this.DBinstance;
             for(let q of qy.slice(0, -1)) {
                 if(temp[q] === undefined) 
                     temp[q] = {};
@@ -57,17 +63,17 @@ export class Database extends BaseClient {
     }
 
     private watchDbForChanges() {
-        let previousState = JSON.stringify(this.instance);
+        let previousState = JSON.stringify(this.DBinstance);
 
         this.setInterval(() => {
-            if(JSON.stringify(this.instance) != previousState) {
-                previousState = JSON.stringify(this.instance);
+            if(JSON.stringify(this.DBinstance) != previousState) {
+                previousState = JSON.stringify(this.DBinstance);
                 this.save();
             }
         }, this.dbWatchInterval);
     }
 
     private save() {
-        fs.writeFileSync(this.absoluteDbPath, JSON.stringify(this.instance, null, 2));
+        fs.writeFileSync(this.absoluteDbPath, JSON.stringify(this.DBinstance, null, 2));
     }
 }
