@@ -8,19 +8,19 @@ import Utils from '../../util/utils';
 import files from "../../util/misc/files";
 import { DB } from '../../mokkun';
 import cp from 'child_process';
+const imports = {fs, path, ax, Utils, files, DB, cp};
+const decls = Object.keys(imports).reduce((p, c) => p + `var ${c} = imports["${c}"]; `, '');
+//
 
 @ownerOnly
 @group("BotOwner")
 export default class {
     @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
     static eval(msg: c.m, args: c.a, bot: c.b) {
-        const imports = {fs, path, ax, Utils, files, DB, cp};
-        
         const print = (cont: any, opts?: any) => msg.channel.send(cont, opts);
-
         let code = msg.content.slice(msg.prefix.length + this.name.length);
         try {
-            eval(code);
+            eval(decls + '\n\n' + code);
         } catch(err) {
             msg.channel.send('Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + err.stack.split('\n').slice(0, 5).join('\n'), {split: true, code: true});
         }
