@@ -25,14 +25,16 @@ export class SafeEmbed extends MessageEmbed {
         }
     }
 
-    populateEmbeds(embs: SafeEmbed[] = [], level = 1) : SafeEmbed[] {
+    populateEmbeds(max = SafeEmbed.max.fields, embs: SafeEmbed[] = [], level = 1) : SafeEmbed[] {
+        if(max != SafeEmbed.max.fields && level == 1)
+            this.overFields.unshift(...this.fields.splice(max));
         if(this.overFields.length == 0)
             return embs;
-        if(embs.length == 0)
-            return this.populateEmbeds([this.setFooter(`Strona 1/${Math.ceil(1 + this.overFields.length / SafeEmbed.max.fields)}`)], ++level);
-        embs.push(new SafeEmbed(this).setFooter(`Strona ${level}/${embs.length + Math.ceil(this.overFields.length / SafeEmbed.max.fields)}`));
-        embs[embs.length - 1].fields = this.overFields.splice(0, SafeEmbed.max.fields);
-        return this.populateEmbeds(embs, ++level);
+        if(!embs.length)
+            return this.populateEmbeds(max, [this.setFooter(`Strona 1/${Math.ceil(1 + this.overFields.length / max)}`)], ++level);
+        embs.push(new SafeEmbed(this).setFooter(`Strona ${level}/${embs.length + Math.ceil(this.overFields.length / max)}`));
+        embs[embs.length - 1].fields = this.overFields.splice(0, max);
+        return this.populateEmbeds(max, embs, ++level);
     }
 
     setAuthor(name: StringResolvable, iconURL?: string, url?: string) {
@@ -55,6 +57,12 @@ export class SafeEmbed extends MessageEmbed {
         return super.setFooter(text, iconURL);
     }
 
+    addField(name: StringResolvable, value: StringResolvable, inline?: boolean) {
+        super.addField(name, value, inline);
+        this.shortenFields();
+        return this;
+    }
+
     addFields(...fields: EmbedFieldData[] | EmbedFieldData[][]) {
         super.addFields(...fields);
         this.shortenFields();
@@ -71,9 +79,5 @@ export class SafeEmbed extends MessageEmbed {
         name = Util.resolveString(name).slice(0, SafeEmbed.max.fieldName);
         value = Util.resolveString(value).slice(0, SafeEmbed.max.fieldValue);
         return super.normalizeField(name, value, inline);
-    }
-
-    static normalizeFields(...fields: EmbedFieldData[] | EmbedFieldData[][]) {
-        return super.normalizeFields(...fields).slice(0, SafeEmbed.max.fields);
     }
 }
