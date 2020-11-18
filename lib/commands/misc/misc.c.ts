@@ -47,7 +47,7 @@ export default class {
         const color = '#ffafee';
         const listCmds = (c?: ICommand, path?: string, cmds?: ICommand[], mName?: string) => new bot.RichEmbed().setColor(color)
             .setAuthor(mName ? 'Moduł: ' + mName : c.subcommandGroup ? 'Grupa Komend: ' + path : 'Komenda: ' + path)
-            .setDescription(`Aby dowiedzieć się więcej o danej komendzie wpisz \`${msg.prefix}help {nazwa komendy}\`\n\n`
+            .setDescription(`Aby dowiedzieć się więcej o danej komendzie wpisz \`${msg.prefix}help {nazwa komendy}\`\n\n` + (c.subcommandGroup && c.aliases.length > 1 ? `**Aliasy:** \`${c.aliases.join(', ')}\`\n\n` : '')
             + cmds.map(c => (c.deprecated ? '~~' : '') + `\`${msg.prefix}${path ? path + ' ' : ''}${c.name}\` - ${c.description}` + (c.subcommandGroup ? ' `[Grupa Komend]`' : '') + (c.deprecated ? '~~  `wyłączona`' : '')).join('\n'));
 
         let groups: {[prop: string]: ICommand[]} = { Inne: [] };
@@ -78,8 +78,8 @@ export default class {
             }
             if(!cmd.subcommandGroup) {
                 let emb = new bot.RichEmbed().setColor(color).setAuthor("Komenda: " + path.join(' '))
-                .setDescription(`**Opis:** ${cmd.description}\n\n**Używanie:** ${cmd.usage?.replace(/\$p/g, msg.prefix) || ''}`);
-                cmd.aliases && emb.setDescription(emb.description + "\n\n**Aliasy:** " + `\`${cmd.aliases.join(", ")}\``);
+                .setDescription(`**Opis:** ${cmd.description}\n\n**Używanie:** ${cmd.usage?.replace(/\$p/g, msg.prefix).replace(/\$c/g, msg.prefix + path.join(' ')) || ''}`);
+                cmd.aliases && emb.setDescription(emb.description + "\n\n**Aliasy:** " + `\`${cmd.aliases.map(a => `${path.slice(0, -1)} ${a}`).join(", ")}\``);
                 cmd.permissions && emb.setDescription(emb.description + `\n\n**Uprawnienia:** \`${cmd.permissions.join(', ')}\``);
                 let flagi = [cmd.notdm && "__Nie można używac na PRIV__", cmd.ownerOnly && "__Dozwolone tylko dla ownera bota__"].filter(Boolean);
                 flagi.length > 0 && emb.setDescription(emb.description + "\n\n" + flagi.join("\n"));
