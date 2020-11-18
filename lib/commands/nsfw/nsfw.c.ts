@@ -14,13 +14,13 @@ export default class H {
         await msg.react('🔒');
         let deletable = true;
         let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name), {time: Utils.parseTimeStrToMilis('10m')});
+        let r = (react: MessageReaction) => {
+            deletable = false;
+            r = () => react.remove();
+        };
         coll.on('collect', (react, user) => {
-            if(react.emoji.name == '🔒') {
-                if(user.id == author)
-                    deletable = false;
-                else
-                    react.users.remove(user);
-            }
+            if(react.emoji.name == '🔒')
+                r(react);
             else if(react.emoji.name == '🔄') {
                 if(deletable)
                     msg.delete({timeout: 150});
