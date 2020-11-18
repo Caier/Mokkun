@@ -1,9 +1,9 @@
 import { Mokkun } from './lib/mokkun';
-import { SilentError } from './lib/util/errors/errors';
+import { LoggedError, SilentError } from './lib/util/errors/errors';
 require('dotenv').config();
 
 process.on('unhandledRejection', (err: any) => 
-    !(err instanceof SilentError) &&
+    !(err instanceof SilentError) && !(err instanceof LoggedError) &&
     console.error("Unhanded Rejection: " + err.stack)
 );
 

@@ -40,7 +40,6 @@ export class Mokkun extends Discord.Client {
         DB = this.db;
         this.commands = this.loadCommands();
         this.start();
-        this.handleLoggedErrors();
     }
 
     private ensureVars() {
@@ -77,13 +76,6 @@ export class Mokkun extends Discord.Client {
         this.on("shardDisconnect", () => this.reconnect());
         this.on("error", err => console.error("Websocket error: " + err.message));
         this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
-    }
-
-    private handleLoggedErrors() {
-        process.on('unhandledRejection', err => {
-            if(err instanceof LoggedError)
-                err.channel?.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
-        });
     }
 
     private reconnect() {
@@ -150,7 +142,7 @@ export class Mokkun extends Discord.Client {
             }
         }
         catch(err) {
-            if(err instanceof SilentError)
+            if(err instanceof SilentError || err instanceof LoggedError)
                 return;
             console.error(`Error while executing command ${args[0]}: ${err.stack}`);
             msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
