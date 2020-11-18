@@ -1,90 +1,93 @@
-import { group, aliases, register, CmdParams as c } from "../../util/cmdUtils";
-import uuidv4 from 'uuid/v4';
+import { group, aliases, register, CmdParams as c, subcommandGroup, extend } from "../../util/cmdUtils";
+import { SafeEmbed } from "../../util/embed/SafeEmbed";
+import { LoggedError } from "../../util/errors/errors";
+import { IRemind } from "../../util/interfaces/IRemind";
+import Utils from "../../util/utils";
 
-const usage = `\`$premind add {gdzie (może być puste == tutaj)} {za ile? przykład: 1M30d24h60m} | {co przypomnieć}\` - tworzy przypomnienie\n
-                \`$premind rem {id przypomnienia} - usuwa\`\n\`$premind list\` - listuje przypomnienia'`
+const remCol = '#00ffff';
 
-@group("Przypomnienia")
-export default class {
-    @aliases('rem')
-    @register('Tworzenie i zarządzanie przypomnieniami', usage)
-    static remind(msg: c.m, args: c.a, bot: c.b) {
-        if(args[1] == "add") {
-            let rem: any = {};
+@group("Różne")
+export default class H {};
+
+@subcommandGroup('komendy związane z przypomnieniami', H)
+@aliases('r')
+@extend((m: c.m, a: c.a, b: c.b) => [m, a, b, b.db.System?.reminders || []])
+class remind {
+    @aliases('a')
+    @register('tworzy przypomnienie na bieżącym kanale', '`$c {za ile? przykład: 1M30d24h60m} {treść przypomnienia}`')
+    static add(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
+        args = bot.newArgs(msg, {freeargs: 3}).slice(1);
+        if(!args[1] || !args[2]) {
+            bot.sendHelp(msg, ['remind', 'add']);
+            return;
+        }
+
+        if(reminds.filter(r => msg.guild?.channels?.resolve(r.createdIn) || bot.channels?.resolve(r.createdIn)).length > 50)
+            throw new LoggedError(msg.channel, "Przekroczono limit przypomnień dla tego " + (msg.guild ? 'serwera' : 'użytkownika'));
+
+        let boomTime = Utils.parseTimeStrToMilis(args[1]);
+        if(boomTime < 1)
+            throw new LoggedError(msg.channel, 'Niepoprawny czas przypomnienia');
+        boomTime += Date.now();
+
+        let id = ((+('' + Date.now()).slice(7)).toString(36) + Math.random().toString(36).substr(2, 3));
+        reminds.push({
+            id,
+            author: msg.author.id,
+            authorLit: msg.author.tag,
+            createdAt: Date.now(),
+            createdIn: msg.channel.id,
+            content: args[2],
+            boomTime
+        });
+        bot.db.save('System.reminders', reminds);
+
+        msg.channel.send(new SafeEmbed().setColor(remCol).setAuthor('Ustawiono przypomnienie').setDescription(args[2])
+                            .addField('Kiedy', Utils.genDateString(new Date(boomTime), '%D.%M.%Y %h:%m'), true)
+                            .addField('Od', msg.author, true).setFooter('id: ' + id)
+        ).then(async nmsg => {
+            await nmsg.react('❌');
+            nmsg.createReactionCollector((r, u) => r.emoji.name == '❌' && u.id == msg.author.id, {time: Utils.parseTimeStrToMilis('2m')})
+                .on('collect', () => {
+                    bot.db.save('System.reminders', ((bot.db.System.reminders || []) as IRemind[]).filter(r => r.id != id));
+                    nmsg.delete();
+                    msg.channel.send(new SafeEmbed().setColor(remCol).setAuthor('Anulowano przypomnienie'));
+                })
+                .on('end', () => nmsg.reactions.removeAll().catch(e => {}));
+        });
+    }
+
+    @aliases('l')
+    @register('wyświetla wszystkie przypomnienia utworzone na bieżącym kanale', '`$c`')
+    static list(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
+        reminds = reminds.filter(r => msg.guild && msg.guild.channels.cache.keyArray().includes(r.createdIn) || msg.channel.id == r.createdIn);
+        if(!reminds.length) 
+            throw new LoggedError(msg.channel, 'Brak przypomnień', remCol);
             
-            rem.id = uuidv4();
-            rem.author = msg.author.id;
-            rem.authorLit = msg.author.tag;
-            rem.createdAt = Date.now();
-            rem.createdIn = msg.channel.id;
-            rem.where = {};
-            rem.content = bot.getArgs(msg.content, msg.prefix, "|").pop();
+        let emb = new SafeEmbed().setColor(remCol).setAuthor('Lista przypomnień').addFields(
+            reminds.map(r => ({name: r.content, value: `**Od:** <@${r.author}>\n**Kiedy:** \`${Utils.genDateString(new Date(r.boomTime), '%D.%M.%Y %h:%m')}\`${msg.guild ? `\n**Na:** <#${r.createdIn}>` : ''}\n**id:** \`${r.id}\``, inline: true})));
+        if(emb.fields.length > 9)
+            Utils.createPageSelector(msg.channel as any, emb.populateEmbeds(9), {triggers: [msg.author.id]});
+        else
+            msg.channel.send(emb);
+    }
 
-            let test = /((<@!?)|(<#))(?=[0-9]{18}(?=>$))/;
-
-            rem.where.isUser = ((test.test(args[2]) && args[2].includes("@")) || msg.channel.type == 'dm') ? true : false;
-            rem.where.channel = (test.test(args[2])) ? args[2].replace(/[\\<>@#&!]/g, "") : (msg.channel.type == 'dm') ? msg.author.id : msg.channel.id;
-           
-            let timeInc: any = {"M": 0, "d": 0, "h": 0, "m": 0};
-            let timeTest = /([0-9]+[Mdhms]+)+/;
-            let timeStr: any;
-
-            if(timeTest.test(args[2]))
-                timeStr = args[2];
-            else if(timeTest.test(args[3]))
-                timeStr = args[3];
-            else
-                return;
-
-            for(let x of ["M", "d", "h", "m"])
-            {
-                if(timeStr.includes(x))
-                {
-                    let temp = timeStr.slice(0, timeStr.indexOf(x)).split("").reverse().join("").trim();
-
-                    if(/[A-z]/.test(temp))
-                        temp = temp.slice(0, temp.search(/[A-z]/g)).split("").reverse().join("");
-                    else
-                        temp = temp.split("").reverse().join("");
-                
-                    timeInc[x] += parseInt(temp);
-                }
-            }
-
-            let milisInc = (timeInc["M"] * 2629743 + timeInc["d"] * 86400 + timeInc["h"] * 3600 + timeInc["m"] * 60) * 1000;
-
-            rem.boomTime = Date.now() + milisInc;
-
-            let applied = (rem.where.isUser) ? "@" + rem.where.channel : "#" + rem.where.channel;
-
-            let embed = new bot.RichEmbed().setColor("#007F00").setDescription(`Ustawiono przypomienie w <${applied}>\nWiadomość: \`${rem.content}\`\nKiedy: \`${new Date(rem.boomTime)}\``).setFooter(`id: ${rem.id}`);
-            
-            let curRems = (bot.db.get(`System.reminders`) || [])
-            curRems.push(rem);
-            bot.db.save(`System.reminders`, curRems);
-
-            msg.channel.send(embed);
+    @aliases('r', 'rem')
+    @register('usuwa ustawione przypomnienia po id', '`$c {id przypomnienia}`')
+    static remove(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
+        if(!args[1]) {
+            bot.sendHelp(msg, ['remind', 'remove']);
+            return;
         }
 
-        else if(args[1] == "rem" && args[2] && /^[A-F\d]{8}-[A-F\d]{4}-4[A-F\d]{3}-[89AB][A-F\d]{3}-[A-F\d]{12}$/i.test(args[2]))
-        {
-            bot.db.save(`System.reminders`, (bot.db.get(`System.reminders`) || []).filter((e: { id: string; }) => e.id != args[2]));
-            msg.channel.send(bot.embgen("#007F00", "Usunięto przypomnienie"));
+        let r = reminds.find(r => r.id == args[1]);
+        if(!r)
+            throw new LoggedError(msg.channel, "Takie przypomnienie nie istnieje", remCol);
+        if(r.author == msg.author.id && (msg.guild?.channels.cache.keyArray().includes(r.createdIn) || r.createdIn == msg.channel.id)) {
+            bot.db.save('System.reminders', bot.db.System.reminders.filter((r: IRemind) => r.id != args[1]));
+            msg.channel.send(bot.emb('Usunięto przypomnienie', remCol, true));
         }
-
-        else if(args[1] == "list")
-        {
-            let ewe = ``;
-
-            for(let x of (bot.db.get(`System.reminders`) || []).filter((r: { createdIn: string; where: { channel: import("discord.js").Guild; }; }) => r.createdIn == msg.channel.id || r.where.channel == msg.guild && msg.guild.id || msg.channel.id))
-            {
-                ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime).toLocaleString([], {timeZone: 'Europe/Warsaw'})}\`\n**w:** <${(x.where.isUser) ? "@" + x.where.channel : "#" + x.where.channel}>\n**id:** \`${x.id}\`\n\n`;
-            }
-
-            if(ewe.length < 1950)
-                msg.channel.send(new bot.RichEmbed().setColor("#007F00").setDescription((ewe.length == 0) ? "Brak" : ewe));
-            else
-                msg.channel.send(ewe, {split: true});
-        }
+        else
+            throw new LoggedError(msg.channel, "Możesz usunąć jedynie swoje przypomnienia" + msg.channel.type != 'dm' ?  " z bieżącego serwera" : '', remCol)
     }
 }
