@@ -2,7 +2,6 @@ import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageE
 import fs from 'fs-extra';
 import path from 'path';
 import { SafeEmbed } from './embed/SafeEmbed';
-import { SilentError } from './errors/errors';
 
 namespace Utils {
     /**
@@ -185,6 +184,23 @@ namespace Utils {
                 }
             });
         });
+    }
+
+    /**
+     * Creates a custom date string by replacing the following with a specific part of the date:
+     * `%W` - week; `%Y` - year; `%M` - month; `%D` - day; `%h` - hours; `%m` - minutes; `%s` - seconds
+     * @param date A date object (or millis) of which string representation you want to create
+     * @param template A template string using % characters
+     * @param timeZone Your timezone (uses Europe/Warsaw by default)
+     */
+    export function genDateString(date: Date | string | number, template: string, timeZone = "Europe/Warsaw") {
+        let a = new Date(date).toLocaleString('en-US', {timeZone, hour12: false, weekday: 'long', year: 'numeric', month: '2-digit', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'})
+                        .split(', ').map((v, i) => !i && v || i == 1 && v.split('/') || v.split(':')).flat();
+        
+        for(let i = 0, p = '%W %M %D %Y %h %m %s'.split(' '); i < a.length; i++)
+            template = template.replace(new RegExp(p[i], 'g'), a[i]);
+
+        return template;
     }
 }
 
