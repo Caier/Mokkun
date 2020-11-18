@@ -23,7 +23,11 @@ function applyToAll(target: any, what: string, val: any) {
 }
 
 export function aliases(...aliases: string[]) {
-    return function(target: any, propertyKey: any, propDesc: PropertyDescriptor) {
+    return function(target: any, propertyKey?: any, propDesc?: PropertyDescriptor) {
+        if(!propertyKey) {
+            target.$selfAliases = aliases;
+            return;
+        }
         let props = initProps(target, propertyKey);
         if(!props.aliases)
             props.aliases = [];
@@ -102,7 +106,8 @@ export function subcommandGroup(desc: string, ...handlers: any[]) {
             name: target.name,
             description: desc,
             subcommandGroup: true,
-            subcommands: scMap
+            subcommands: scMap,
+            aliases: target.$selfAliases || []
         }
         
         for(let i = 1; i < handlers.length; i++)
