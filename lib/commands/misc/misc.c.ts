@@ -47,7 +47,7 @@ export default class {
         const color = '#ffafee';
         const listCmds = (c?: ICommand, path?: string, cmds?: ICommand[], mName?: string) => new bot.RichEmbed().setColor(color)
             .setAuthor(mName ? 'Moduł: ' + mName : c.subcommandGroup ? 'Grupa Komend: ' + path : 'Komenda: ' + path)
-            .setDescription(`Aby dowiedzieć się więcej o danej komendzie wpisz \`${msg.prefix}help {nazwa komendy}\`\n\n` + (c.subcommandGroup && c.aliases.length > 1 ? `**Aliasy:** \`${c.aliases.join(', ')}\`\n\n` : '')
+            .setDescription(`Aby dowiedzieć się więcej o danej komendzie wpisz \`${msg.prefix}help {nazwa komendy}\`\n\n` + (c?.subcommandGroup && c.aliases.length > 1 ? `**Aliasy:** \`${c.aliases.join(', ')}\`\n\n` : '')
             + cmds.map(c => (c.deprecated ? '~~' : '') + `\`${msg.prefix}${path ? path + ' ' : ''}${c.name}\` - ${c.description}` + (c.subcommandGroup ? ' `[Grupa Komend]`' : '') + (c.deprecated ? '~~  `wyłączona`' : '')).join('\n'));
 
         let groups: {[prop: string]: ICommand[]} = { Inne: [] };
@@ -72,7 +72,7 @@ export default class {
                     cmd.subcommandGroup && (scope = cmd.subcommands);
                 }
                 else {
-                    msg.channel.send(new bot.RichEmbed().setColor(color).setAuthor('Ta komenda/grupa komend nie istnieje.'));
+                    msg.channel.send(new bot.RichEmbed().setColor(color).setAuthor('Ta komenda/grupa komend/moduł nie istnieje.'));
                     return;
                 }
             }
