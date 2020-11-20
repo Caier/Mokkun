@@ -70,6 +70,7 @@ export default class {
             let dir = path.join(mainDir, args[2] || "");
             if(!dir.includes(mainDir))
                 dir = mainDir;
+            fs.ensureDirSync(dir);
             if(!fs.statSync(dir).isDirectory()) return;
             let savestr = fs.createWriteStream(path.join(dir, attch[0].url.slice(attch[0].url.lastIndexOf("/"))));
             rp.get(attch[0].url).on('data', (data: any) => savestr.write(data)).then(() =>
