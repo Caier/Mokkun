@@ -7,7 +7,8 @@ let files = {
     prevRes: global('prevRes'),
     temp: temp(),
     stopF: global('ZTMstops.json'),
-    pojazdy: global('pojazdy.json')
+    pojazdy: global('pojazdy.json'),
+    guildScripts: global('guildScripts')
 }
 
 export default files;

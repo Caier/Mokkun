@@ -12,6 +12,8 @@ import { IExtMessage } from './util/interfaces/DiscordExtended';
 import Utils from './util/utils';
 import { Database } from './util/database/Database';
 import { IDatabase } from './util/database/IDatabaseData';
+import { CmdParams as c } from './util/cmdUtils';
+import files from './util/misc/files';
 
 const __mainPath = process.cwd();
 
@@ -23,6 +25,7 @@ export class Mokkun extends Discord.Client {
                        path.join(__mainPath, 'files', 'global')];
     private cmdDir = path.join(__dirname, 'commands');
     private loopInterval = 3000;
+    private guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
     loopExecCount = 0;
     music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
@@ -39,6 +42,7 @@ export class Mokkun extends Discord.Client {
         this.db = Database.getInstance(this.vars.DB_PATH).DBinstance;
         DB = this.db;
         this.commands = this.loadCommands();
+        this.loadGuildScripts();
         this.start();
     }
 
@@ -68,6 +72,14 @@ export class Mokkun extends Discord.Client {
         return cmds;
     }
 
+    private loadGuildScripts() {
+        if(!fs.existsSync(files.guildScripts))
+            return;
+        
+        fs.readdirSync(files.guildScripts).forEach(s => 
+            this.guildScripts.set(s.slice(0, -3), require(path.join(files.guildScripts, s))));
+    }
+
     private start() {
         super.login(this.vars.TOKEN).catch(() => this.reconnect());
         this.once("ready", () => this.setInterval(() => this.loops(), this.loopInterval));
@@ -92,14 +104,14 @@ export class Mokkun extends Discord.Client {
     }
 
     private async onMessage(msg: IExtMessage) {
-        //🤡
-        if(msg.guild?.id == '752199572830552104' && Utils.rand(0, 250) == 8)
-            msg.react('🤡');
-
         let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
         msg.prefix = prefix;
         msg.channel.data = this.db.Data?.[msg.channel.id];
         msg.guild && (msg.guild.data = this.db.Data?.[msg.guild.id]);
+        let args = this.getArgs(msg.content, prefix);
+
+        if(this.guildScripts.has(msg.guild?.id))
+            this.guildScripts.get(msg.guild.id)(msg, args, this);
 
         if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
             this.db.save(`Data.${msg.guild.id}.prefix`, ".");
@@ -107,7 +119,6 @@ export class Mokkun extends Discord.Client {
         }
 
         if(!msg.content.startsWith(prefix) || msg.author.bot) return;
-        let args = this.getArgs(msg.content, prefix);
         if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
             msg.channel.send(this.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`));
             return;
