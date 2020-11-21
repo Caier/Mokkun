@@ -1,4 +1,4 @@
-import { group, CmdParams as c, notdm, register, extend, aliases, deprecated } from "../../util/cmdUtils";
+import { group, CmdParams as c, notdm, register, extend, aliases, deprecated, subcommandGroup } from "../../util/cmdUtils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { MusicQueue } from "../../util/music/MusicQueue";
 import { Message, TextChannel } from "discord.js";
@@ -7,19 +7,14 @@ import sc from '@caier/sc';
 import { MusicEntry } from "../../util/music/MusicEntry";
 import { TrackEntry } from "@caier/sc/out/interfaces";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
-import { SilentError } from "../../util/errors/errors";
+import { LoggedError, SilentError } from "../../util/errors/errors";
 import Utils from "../../util/utils";
 import { Playlist } from "../../util/music/Playlist";
 
 @notdm
-@extend(H.modify)
+@extend((m: c.m, [], b: c.b) => [m, b.newArgs(m, {freeargs: 1}), b, b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel)])
 @group("Muzyka")
 export default class H {
-    static modify(msg: c.m, args: c.a, bot: c.b) {
-        return [msg, bot.newArgs(msg, {freeargs: 1}), bot, 
-                bot.music.getQueue(msg.guild).setOutChan(msg.channel as TextChannel)];
-    }
-
     static embColor = [112, 0, 55];
     static scColor = '#ff8800';
     static emb = (desc?: string, sc?: boolean) => new SafeEmbed().setColor(sc ? H.scColor : H.embColor as any).setAuthor(desc || 'null');
@@ -254,43 +249,6 @@ export default class H {
         msg.channel.send(H.emb('Wyczyszczono historię odtwarzania'));
     }
 
-    @aliases('rep')
-    @register('ponownie puszcza ostatnią, lub wybraną z historii piosenkę, albo całą historię', '`$prepeat (pozycja w historii, lub wiele pozycji oddzielonych spacją)`\n`$prepeat all` - dodaje do kolejki całą historię (pomijając powtórzenia)\n`$prepeat random (x)` - dodaje do kolejki x utworów z historii')
-    static async repeat(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false) {
-        await H.assertVC(msg);
-        if(queue.history?.length == 0) {
-            msg.channel.send(H.emb('Historia odtwarzania jest pusta!'));
-            return;
-        }
-        args = bot.newArgs(msg);
-        await H.assertVC(msg, queue);
-        if(!args[1]) {
-            let saved = queue.history[queue.history.length - 1];
-            queue.addEntry(MusicEntry.fromJSON(saved, msg.author.username), false);
-        }
-        else if(args[1] == 'all' || args[1] == 'random') {
-            let already: string[] = [];
-            let entries: MusicEntry[] = queue.history.filter(v => 
-                !already.includes(v.videoInfo.url) && already.push(v.videoInfo.url)     
-            ).map(v => MusicEntry.fromJSON(v, msg.author.username));
-            if(args[1] == 'random')
-                entries = Utils.arrayShuffle(entries).slice(0, !isNaN(+args[2]) && +args[2] || 1);
-            queue.addEntry(entries, top);
-        }
-        else {
-            args[1] = args.slice(1);
-            let wrong = args[1].filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
-            args[1] = args[1].filter((v: string) => !wrong.includes(v));
-            let entries: MusicEntry[] = [];
-            for(let entry of args[1]) {
-                let saved = [...queue.history].reverse()[+entry - 1];
-                entries.push(MusicEntry.fromJSON(saved, msg.author.username));
-            }
-            queue.addEntry(entries, top);
-            wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
-        }
-    }
-
     @deprecated
     @aliases('aplay')
     @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
@@ -304,4 +262,52 @@ export default class H {
         msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
     }
 
+}
+
+@subcommandGroup('ponowne odtwarzanie piosenek z historii', H)
+@aliases('rep')
+@extend(repeat.mod)
+class repeat {
+    static async mod(msg: c.m, args: c.a, bot: c.b) {
+        await H.assertVC(msg);
+        let q = bot.music.getQueue(msg.guild).setOutChan(msg.channel as TextChannel);
+        if(!q.history?.length)
+            throw new LoggedError(msg.channel, "Historia odtwarzania jest pusta!", H.embColor as any);
+        await H.assertVC(msg, q);
+        let already: string[] = [];
+        let entries: MusicEntry[] = q.history.filter(v => 
+            !already.includes(v.videoInfo.url) && already.push(v.videoInfo.url)     
+        ).map(v => MusicEntry.fromJSON(v, msg.author.username));
+        return [msg, args, bot, q, entries];
+    }
+
+    @aliases('rand', 'r')
+    @register('odtwarza losowe piosenki z historii', '`$c (liczba piosenek)`')
+    static random(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, entries: MusicEntry[]) {
+        queue.addEntry(Utils.arrayShuffle(entries).slice(0, !isNaN(+args[1]) && +args[1] || 1), false);
+    }
+
+    @aliases('a')
+    @register('odtwarza wszystkie unikalne piosenki z historii', '`$c')
+    static all(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, entries: MusicEntry[]) {
+        queue.addEntry(entries, false);
+    }
+
+    @register('odtwarza ostatnią lub wybrane piosenki z historii', '`$c (pozycje piosenek w kolejce np. 23 45 60...)`')
+    static _(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue){
+        if(!args[0])
+            queue.addEntry(MusicEntry.fromJSON(queue.history.slice(-1)[0], msg.author.username), false);
+        else {
+            args[0] = args.slice(1);
+            let wrong = args[0].filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
+            args[0] = args[0].filter((v: string) => !wrong.includes(v));
+            let entries: MusicEntry[] = [];
+            for(let entry of args[0]) {
+                let saved = [...queue.history].reverse()[+entry - 1];
+                entries.push(MusicEntry.fromJSON(saved, msg.author.username));
+            }
+            queue.addEntry(entries, false);
+            wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
+        }
+    }
 }
