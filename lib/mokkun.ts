@@ -131,8 +131,8 @@ export class Mokkun extends Discord.Client {
         const reason = (r: string) => msg.channel.send(this.emb(r));
 
         try {
-            if(commandScope.has(args[0])) {
-                let cmd = commandScope.get(args[0]);
+            if(commandScope.has(args[0]) || commandScope.has('_')) {
+                let cmd = commandScope.get(args[0]) || commandScope.get('_');
                 if(cmd.deprecated)
                     reason("**Ta komenda została wyłączona**");
                 else if(cmd.ownerOnly && msg.author.id != this.vars.BOT_OWNER)

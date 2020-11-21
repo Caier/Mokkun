@@ -66,6 +66,7 @@ export function permissions(...permArr: PermissionString[]) {
 
 export function group(group: string) {
     return function(target: any, propKey?: string) {
+        target.$group = group;
         if(!propKey) applyToAll(target, 'group', group);
         else initProps(target, propKey).group = group;
     }
@@ -88,7 +89,7 @@ export function extend(transFn: any) {
             if(!fn.startsWith("_")) continue;
             let temp = target[fn].execute;
             target[fn].execute = async function(msg: any, args: any, bot: any) {
-                await temp(...transFn(msg, args, bot));
+                await temp(...(await transFn(msg, args, bot)));
             }
         }
     }
@@ -105,6 +106,7 @@ export function subcommandGroup(desc: string, ...handlers: any[]) {
         handlers[0]['_' + target.name] = <ICommand> {
             name: target.name,
             description: desc,
+            group: handlers[0].$group,
             subcommandGroup: true,
             subcommands: scMap,
             aliases: target.$selfAliases || []
