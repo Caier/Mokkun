@@ -11,7 +11,6 @@
       "inlineSources": true,                 
       "forceConsistentCasingInFileNames": true,
       "strictNullChecks": false,
-      "allowJs": true,
       "experimentalDecorators": true,
       "noFallthroughCasesInSwitch": true
     }
