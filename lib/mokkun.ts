@@ -65,8 +65,11 @@ export class Mokkun extends Discord.Client {
             for(let prop in temp) {
                 if(!prop.startsWith("_")) continue;
                 temp[prop].aliases = [temp[prop].name, ...(temp[prop].aliases || [])];
-                for(let alias of temp[prop].aliases)
+                for(let alias of temp[prop].aliases) {
+                    if(cmds.has(alias))
+                        throw Error('Duplicated command alias: ' + alias);
                     cmds.set(alias, temp[prop]);
+                }
             }
         }
         return cmds;
@@ -104,21 +107,32 @@ export class Mokkun extends Discord.Client {
     }
 
     private async onMessage(msg: IExtMessage) {
+        if(msg.author.bot) return;
+        
         let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
         msg.prefix = prefix;
         msg.channel.data = this.db.Data?.[msg.channel.id];
         msg.guild && (msg.guild.data = this.db.Data?.[msg.guild.id]);
         let args = this.getArgs(msg.content, prefix);
 
-        if(this.guildScripts.has(msg.guild?.id))
-            this.guildScripts.get(msg.guild.id)(msg, args, this);
+        if(this.guildScripts.has(msg.guild?.id)) {
+            try {
+                await this.guildScripts.get(msg.guild.id)(msg, args, this);
+            }
+            catch(err) {
+                if(err instanceof SilentError || err instanceof LoggedError)
+                    return;
+                console.error(`Error while executing guild script: ${err.stack}`);
+                msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania skryptu serwerowego :(**\n${err.message}`));
+            }
+        }   
 
         if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
             this.db.save(`Data.${msg.guild.id}.prefix`, ".");
             msg.channel.send(this.emb('Zresetowano prefix do "."'));
         }
 
-        if(!msg.content.startsWith(prefix) || msg.author.bot) return;
+        if(!msg.content.startsWith(prefix)) return;
         if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
             msg.channel.send(this.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`));
             return;
