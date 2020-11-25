@@ -107,12 +107,13 @@ export class Mokkun extends Discord.Client {
     }
 
     private async onMessage(msg: IExtMessage) {
-        if(msg.author.bot) return;
-        
         let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
         msg.prefix = prefix;
         msg.channel.data = this.db.Data?.[msg.channel.id];
         msg.guild && (msg.guild.data = this.db.Data?.[msg.guild.id]);
+
+        if(msg.author.bot) return;
+        
         let args = this.getArgs(msg.content, prefix);
 
         if(this.guildScripts.has(msg.guild?.id)) {
