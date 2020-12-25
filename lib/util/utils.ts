@@ -194,7 +194,7 @@ namespace Utils {
      * @param timeZone Your timezone (uses Europe/Warsaw by default)
      */
     export function genDateString(date: Date | string | number, template: string, timeZone = "Europe/Warsaw") {
-        let a = new Date(date).toLocaleString('en-US', {timeZone, hour12: false, weekday: 'long', year: 'numeric', month: '2-digit', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'})
+        let a = new Date(date).toLocaleString('en-US', <any> {timeZone, hourCycle: "h23", weekday: 'long', year: 'numeric', month: '2-digit', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit'})
                         .split(', ').map((v, i) => !i && v || i == 1 && v.split('/') || v.split(':')).flat();
         
         for(let i = 0, p = '%W %M %D %Y %h %m %s'.split(' '); i < a.length; i++)
