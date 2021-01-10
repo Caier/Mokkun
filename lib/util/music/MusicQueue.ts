@@ -1,18 +1,16 @@
 import { MusicEntry } from "./MusicEntry";
 import { VoiceConnection, TextChannel, BaseClient, Guild } from "discord.js";
 import { MokkunMusic } from "./MokkunMusic";
-import { TrackEntry } from "@caier/sc/out/interfaces";
+import { TrackEntry } from "@caier/sc/lib/interfaces";
 import { Readable } from "stream";
 import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
-import yts from '@caier/yts';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
-import ax from 'axios';
-import $ from 'cheerio';
-import { PlaylistManager } from "./PlaylistManager";
 import { IExtGuild } from "../interfaces/DiscordExtended";
 import { getOpusStream } from "./OpusStreamFinder";
+import PlayspaceManager from "./PlayspaceManager";
+import Playspace from "./Playspace";
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
@@ -21,8 +19,7 @@ export class MusicQueue extends BaseClient {
     private readonly watchInterval = 1000;
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
-    private readonly maxHistory = 200;
-    playlistManager: PlaylistManager;
+    playspaceManager: PlayspaceManager;
     queue: MusicEntry[] = [];
     history: IMusicHistory[];
     VoiceCon: VoiceConnection;
@@ -33,8 +30,9 @@ export class MusicQueue extends BaseClient {
     constructor(master: MokkunMusic, guild: IExtGuild) { 
         super();
         this.master = master;
-        this.history = (guild.data?.music?.history || []) as IMusicHistory[];
-        this.queue = ((guild.data?.music?.queue || []) as IMusicHistory[]).map(h => MusicEntry.fromJSON(h));
+        this.playspaceManager = guild.data?.music?.playspaces ? PlayspaceManager.fromJSON(guild.data.music.playspaces) : new PlayspaceManager();
+        this.history = this.playspaceManager.current.history;
+        this.queue = this.playspaceManager.current.queue;
         this.autoplay = guild.data?.music?.autoplay || false;
         this.watch();
     }
@@ -78,7 +76,7 @@ export class MusicQueue extends BaseClient {
         if(this.queue.length > 0) {
             this.shiftToHistory();
             this.playing = this.queue.shift() as MusicEntry;
-            this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, this.queue.map(e => e.toJSON()));
+            this.savePlayspaces();
             this.announce('nextSong');
             await this.play(this.playing);
         }
@@ -126,7 +124,8 @@ export class MusicQueue extends BaseClient {
     private shiftToHistory() {
         if(!this.playing) return;
         this.history.push(this.playing.toJSON());
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.history`, this.history.slice(-this.maxHistory));
+        this.savePlayspaces();
+        this.playspaceManager.current.playing = null;
         this.playing = null;
     }
 
@@ -149,7 +148,7 @@ export class MusicQueue extends BaseClient {
                     this.tryingToPlay = false;
                     throw new LoggedError(this.outChannel, "Cannot attach StreamDispatcher");
                 }
-                await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(), 1000));
+                await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(null), 1000));
             } else this.tryingToPlay = false;
         }
         catch(e) {
@@ -161,7 +160,10 @@ export class MusicQueue extends BaseClient {
     private finish() {
         this.playing?.dispatcher?.destroy();
         this.shiftToHistory();
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, []);
+    }
+
+    savePlayspaces() {
+        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.playspaces`, this.playspaceManager.toJSON());
     }
 
     announce(what: 'nextSong'|'addedToQueue'|'removed'|'addedMultiple', entry?: MusicEntry, ret?: boolean) : void | SafeEmbed {
@@ -274,12 +276,27 @@ export class MusicQueue extends BaseClient {
         return this.autoplay;
     }
 
+    switchPlayspace(ps: string | Playspace) {
+        if(typeof ps == 'string') {
+            if(ps.toLowerCase() == 'default')
+                ps = this.playspaceManager.spaces.find(s => s.isDefault);
+            else
+                ps = this.playspaceManager.spaces.find(s => s.name == ps);
+            if(!ps)
+                throw Error('This Playspace does not exist');
+        }
+
+        this.finish();
+        this.playspaceManager.current = ps;
+        this.history = this.playspaceManager.current.history;
+        this.queue = this.playspaceManager.current.queue;
+        this.savePlayspaces();
+    }
+
     stop() {
         this.playing?.dispatcher?.destroy();
         this.disconnect();
-        this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.history`, this.history.slice(-this.maxHistory));
-        if(this.queue.length > 0)
-            this.master.bot.db.save(`Data.${this.outChannel.guild.id}.music.queue`, this.queue.map(e => e.toJSON()));
+        this.savePlayspaces();
         super.destroy();
         this.master.deleteQueue(this.outChannel.guild.id);
         for(let prop in this)

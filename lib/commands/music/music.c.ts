@@ -5,14 +5,24 @@ import { Message, TextChannel } from "discord.js";
 import yts from '@caier/yts';
 import sc from '@caier/sc';
 import { MusicEntry } from "../../util/music/MusicEntry";
-import { TrackEntry } from "@caier/sc/out/interfaces";
+import { TrackEntry } from "@caier/sc/lib/interfaces";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { LoggedError, SilentError } from "../../util/errors/errors";
 import Utils from "../../util/utils";
 import { Playlist } from "../../util/music/Playlist";
+import Playspace from "../../util/music/Playspace";
+import { ICommand } from "../../util/interfaces/ICommand";
 
 @notdm
-@extend((m: c.m, [], b: c.b) => [m, b.newArgs(m, {freeargs: 1}), b, b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel)])
+@extend((m: c.m, [], b: c.b, c: ICommand) => {
+    let queue = b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel);
+    let unprohibited = ['queue', 'now', 'his'].map(c => b.commands.get(c));
+    if(!unprohibited.includes(c) && !queue.playspaceManager.current.isPublic && !queue.playspaceManager.current.moderators.includes(m.member.id)) {
+        m.channel.send(H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
+        throw new SilentError();
+    }
+    return [m, b.newArgs(m, {freeargs: 1}), b, queue];
+})
 @group("Muzyka")
 export default class H {
     static embColor = [112, 0, 55];
@@ -178,7 +188,7 @@ export default class H {
     @register('wyświetla kolejkę', '`$pqueue`')
     static queue(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         if(queue.queue.length > 0 || queue.playing) {
-            let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor("Kolejka");
+            let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor("Kolejka").addField("Przestrzeń odtwarzania", queue.playspaceManager.current.name);
             if(queue.playing)
                 emb.addField("Teraz odtwarzane:", `${queue.playing.dispatcher.paused ? '⏸' : '▶️'} [**${queue.playing.videoInfo.name}**](${queue.playing.videoInfo.url})` + '\n' + 'Pozostało: ' + queue.playing.timeLeft);
             if(queue.queue.length > 0) {
@@ -201,7 +211,8 @@ export default class H {
         if(queue.playing) {
             let emb = (<SafeEmbed> queue.announce('nextSong', queue.playing, true)).setAuthor('Teraz odtwarzane')
             .spliceFields(-1, 0, [{name: 'Pozostało', value: queue.playing.timeLeft, inline: true},
-            {name: 'Stan', value: queue.playing.dispatcher.paused ? '⏸' : '▶️', inline: true}]);
+            {name: 'Stan', value: queue.playing.dispatcher.paused ? '⏸' : '▶️', inline: true},
+            {name: 'Przestrzeń', value: queue.playspaceManager.current.name, inline: true}]);
             msg.channel.send(emb);
         }
         else
@@ -261,7 +272,6 @@ export default class H {
         queue.queue = Utils.arrayShuffle(queue.queue);
         msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
     }
-
 }
 
 @subcommandGroup('ponowne odtwarzanie piosenek z historii', H)
@@ -269,8 +279,12 @@ export default class H {
 @extend(repeat.mod)
 class repeat {
     static async mod(msg: c.m, args: c.a, bot: c.b) {
-        await H.assertVC(msg);
         let q = bot.music.getQueue(msg.guild).setOutChan(msg.channel as TextChannel);
+        if(!q.playspaceManager.current.isPublic && !q.playspaceManager.current.moderators.includes(msg.member.id)) {
+            msg.channel.send(H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
+            throw new SilentError();
+        }
+        await H.assertVC(msg);
         if(!q.history?.length)
             throw new LoggedError(msg.channel, "Historia odtwarzania jest pusta!", H.embColor as any);
         await H.assertVC(msg, q);
@@ -293,16 +307,15 @@ class repeat {
         queue.addEntry(entries, false);
     }
 
-    @register('odtwarza ostatnią lub wybrane piosenki z historii', '`$c (pozycje piosenek w kolejce np. 23 45 60...)`')
-    static _(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue){
+    @register('odtwarza ostatnią lub wybrane piosenki z historii', '`$c (pozycje piosenek w historii np. 3 6 17...)`')
+    static _(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         if(!args[0])
             queue.addEntry(MusicEntry.fromJSON(queue.history.slice(-1)[0], msg.author.username), false);
         else {
-            args[0] = args.slice(1);
-            let wrong = args[0].filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
-            args[0] = args[0].filter((v: string) => !wrong.includes(v));
+            let wrong = args.filter((v: string) => isNaN(+v) || ![...queue.history].reverse()[+v - 1]);
+            args = args.filter((v: string) => !wrong.includes(v));
             let entries: MusicEntry[] = [];
-            for(let entry of args[0]) {
+            for(let entry of args) {
                 let saved = [...queue.history].reverse()[+entry - 1];
                 entries.push(MusicEntry.fromJSON(saved, msg.author.username));
             }
@@ -311,3 +324,102 @@ class repeat {
         }
     }
 }
+
+@subcommandGroup('przestrzenie odtwarzania', H)
+@aliases('ps')
+@extend((m: c.m, a: c.a, b: c.b) => [m, a, b, b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel)])
+class playspace {
+    @aliases('c')
+    @register('tworzy nową przestrzeń odtwarzania', '`$c {nazwa przestrzeni} (oznaczenia moderatorów przestrzeni <domyślnie każdy>)')
+    static create(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        if(!args[1])
+            throw new LoggedError(msg.channel, "Podaj nazwę przestrzeni odtwarzania", H.embColor as any);
+        if(queue.playspaceManager.spaces.find(ps => ps.name == args[1]))
+            throw new LoggedError(msg.channel, "Ta przestrzeń odtwarzania już istnieje", H.embColor as any);
+
+        let isPublic = false;
+        let mods = [...new Set([...msg.mentions.members.keyArray(), ...msg.mentions.roles.array().map(r => r.members.keyArray()).flat()])];
+        if(!mods.length)
+            isPublic = true;
+        queue.playspaceManager.spaces.push(new Playspace({name: args[1], author: msg.member.id, moderators: mods, isPublic}));
+        queue.savePlayspaces();
+        msg.channel.send(H.emb('Utworzono przestrzeń odtwarzania: ' + args[1]));
+    }
+
+    @aliases('r', 'rem')
+    @register('usuwa przestrzeń odtwarzania', '`$c`')
+    static remove(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        if(!args[1])
+            throw new LoggedError(msg.channel, "Podaj nazwę przestrzeni odtwarzania", H.embColor as any);
+        let ps = queue.playspaceManager.spaces.find(p => p.name == args[1]);
+        if(!ps)
+            throw new LoggedError(msg.channel, "Ta przestrzeń odtwarzania nie istnieje", H.embColor as any);
+        if(!ps.isPublic && !ps.moderators.includes(msg.member.id))
+            throw new LoggedError(msg.channel, "Nie jesteś moderatorem tej przestrzeni odtwarzania", H.embColor as any);
+        if(ps.isDefault)
+            throw new LoggedError(msg.channel, "Nie możesz usunąć domyślnej przestrzeni odtwarzania", H.embColor as any);
+
+        msg.channel.send(H.emb('Usunięto przestrzeń odtwarzania: ' + args[1]));
+        if(queue.playspaceManager.current == ps)
+            queue.switchPlayspace('default');
+        queue.playspaceManager.spaces = queue.playspaceManager.spaces.filter(s => s.name == ps.name);
+        queue.savePlayspaces();
+    }
+
+    @aliases('sw')
+    @register('zamienia obecną przestrzeń na wybraną', '`$c {nazwa przestrzeni}`')
+    static switch(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        if(!args[1])
+            args[1] = 'Default';
+        let ps = queue.playspaceManager.spaces.find(p => p.name == args[1]);
+        if(!ps)
+            throw new LoggedError(msg.channel, "Ta przestrzeń odtwarzania nie istnieje", H.embColor as any);
+
+        queue.switchPlayspace(ps);
+        msg.channel.send(H.emb('Zmieniono przestrzeń odtwarzania na: ' + ps.name));
+    }
+
+    @register('wyświetla przestrzenie odtwarzania tego serwera', '`$c`')
+    static list(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        let emb = H.emb('Lista przestrzeni odtwarzania').setDescription(queue.playspaceManager.spaces.map(s => s.name).join(', '));
+        msg.channel.send(emb);
+    }
+
+    @register('wyświetla obecną przestrzen odtwarzania', '`$c`')
+    static _(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        let ps = queue.playspaceManager.current;
+        if(ps.isDefault) {
+            msg.channel.send(H.emb('Ta przestrzeń odtwarzania jest domyślna'));
+            return;
+        }
+        let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor('Obecna przestrzeń odtwarzania').addField('Nazwa', ps.name)
+            .addField('Twórca', msg.guild.members.resolve(ps.author)?.user.username)
+            .addField('Publiczna?', ps.isPublic ? 'tak' : 'nie');
+        !ps.isPublic && emb.addField('Moderatorzy', ps.moderators.map(m => msg.guild.members.resolve(m).user.username).join(', '));
+        emb.addField('Długość kolejki', ps.queue.length).addField('Długość historii', ps.history.length);
+
+        msg.channel.send(emb);
+    }
+}
+
+//@subcommandGroup('komendy związane z playlistami', H)
+// @aliases('plist')
+// class playlist {
+//     @aliases('c')
+//     @register()
+//     static create(msg: c.m, args: c.a, bot: c.b) {
+
+//     }
+
+//     @aliases('r', 'rem')
+//     @register()
+//     static remove(msg: c.m, args: c.a, bot: c.b) {
+
+//     }
+
+//     @aliases('u')
+//     @register()
+//     static update(msg: c.m, args: c.a, bot: c.b) {
+
+//     }
+// }
