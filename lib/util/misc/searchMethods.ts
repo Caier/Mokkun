@@ -107,7 +107,7 @@ export async function fromGB(tags?: string) {
         body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, options)).data;
         
         $(".thumbnail-preview > a", body.toString()).each((i, elem) => {
-            imglinks.push("http:" + $(elem).attr('href'));
+            imglinks.push($(elem).attr('href'));
         });
         
         if(imglinks.length > 0) {
