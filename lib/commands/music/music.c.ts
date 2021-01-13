@@ -362,7 +362,7 @@ class playspace {
         msg.channel.send(H.emb('Usunięto przestrzeń odtwarzania: ' + args[1]));
         if(queue.playspaceManager.current == ps)
             queue.switchPlayspace('default');
-        queue.playspaceManager.spaces = queue.playspaceManager.spaces.filter(s => s.name == ps.name);
+        queue.playspaceManager.spaces = queue.playspaceManager.spaces.filter(s => s.name != ps.name);
         queue.savePlayspaces();
     }
 
