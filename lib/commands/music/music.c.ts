@@ -158,6 +158,8 @@ export default class H {
             msg.channel.send(H.emb('Nie ma czego skipować!'));
             return;
         }
+        if(queue.loop)
+            queue.loop = 0;
         if(args[1] && !isNaN(+args[1]) && +args[1] > 0)
             queue.queue.splice(0, (+args[1] >= queue.queue.length) ? queue.queue.length - 1 : +args[1]);
         msg.channel.send(H.emb('Skipped ⏩'));
@@ -210,7 +212,7 @@ export default class H {
     static now(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         if(queue.playing) {
             let emb = (<SafeEmbed> queue.announce('nextSong', queue.playing, true)).setAuthor('Teraz odtwarzane')
-            .spliceFields(-1, 0, [{name: 'Pozostało', value: queue.playing.timeLeft, inline: true},
+            .spliceFields(-1, 0, [{name: 'Pozostało', value: queue.playing.timeLeft + (queue.loop ? ` + ${queue.loop} powtórzeń` : ''), inline: true},
             {name: 'Stan', value: queue.playing.dispatcher.paused ? '⏸' : '▶️', inline: true},
             {name: 'Przestrzeń', value: queue.playspaceManager.current.name, inline: true}]);
             msg.channel.send(emb);
@@ -229,8 +231,14 @@ export default class H {
         }
     }
 
-    @register('zatrzymuje odtwarzanie i rozłącza bota', '$pstop')
+    @register('zatrzymuje odtwarzanie po skończeniu obecnego utworu i rozłącza bota', '$pstop')
     static stop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        msg.channel.send(H.emb(queue.softStop() ? 'Zatrzymanie kolejki nastąpi po skończeniu utworu ⏹' : 'Zatrzymano kolejkę ⏹'));
+    }
+
+    @aliases('fstop')
+    @register('zatrzymuje odtwarzanie i rozłącza bota', '$c')
+    static forcestop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         queue.stop();
         msg.channel.send(H.emb('Zatrzymano kolejkę ⏹'));
     }
@@ -269,8 +277,21 @@ export default class H {
 
     @register('losowo miesza utwory w kolejce', '`$pshuffle`')
     static shuffle(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        queue.queue = Utils.arrayShuffle(queue.queue);
+        let q = Utils.arrayShuffle(queue.queue);
+        queue.queue = q;
+        queue.playspaceManager.current.queue = q;
         msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
+    }
+
+    @register('powtarza odtwarzanie obecnego utworu', '$c (ilość powtórzeń, w przypadku braku tego argumentu utwór powtarzany będzie w nieskończoność)')
+    static loop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
+        if(!queue.playing)
+            throw new LoggedError(msg.channel, 'Nie ma czego powtarzać', H.embColor as any);
+        if(!args[1] || !isNaN(+args[1]) && +args[1] > 0) {
+            queue.loop = +args[1] || Infinity;
+            msg.channel.send(H.emb(`Obecny utwór zostanie powtórzony ${+args[1] || 'nieskończoność'} razy.`));
+        }
+        else msg.channel.send(H.emb('Niepoprawna ilość powtórzeń'));
     }
 }
 
@@ -374,6 +395,8 @@ class playspace {
         let ps = queue.playspaceManager.spaces.find(p => p.name == args[1]);
         if(!ps)
             throw new LoggedError(msg.channel, "Ta przestrzeń odtwarzania nie istnieje", H.embColor as any);
+        if(!ps.isPublic && !ps.moderators.includes(msg.member.id))
+            throw new LoggedError(msg.channel, "Nie jesteś moderatorem tej przestrzeni odtwarzania", H.embColor as any);
 
         queue.switchPlayspace(ps);
         msg.channel.send(H.emb('Zmieniono przestrzeń odtwarzania na: ' + ps.name));
