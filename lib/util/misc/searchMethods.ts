@@ -56,17 +56,17 @@ export async function fromGB(tags?: string) {
             async function getComs(body: string, noRq?: boolean) {
                 if(!noRq) body = (await ax.get(body, options)).data;
                 
-                $(".commentBox", body.toString()).each((i,elem) => {
+                $(".comment-box td:nth-child(2)", body.toString()).each((i,elem) => {
                     comments.push({
-                        name: $(elem).text().split(" >>")[0],
-                        score: parseInt($(elem).text().split("   Score: ").pop().split(" (Vote Up)")[0]),
+                        name: $('a', elem).eq(0).text(),
+                        score: +$(elem).text().split("   Score: ").pop().split(" (Vote Up)")[0],
                         comment: $(elem).text().split("(Vote Up)").pop()
                     });
                 });
             }
             let body = (await ax.get(url, options)).data;
             let link = $("#image", body.toString()).attr('src');
-            let tags = $("#image", body.toString()).attr('alt');
+            let tags = $(".image-container.note-container", body.toString()).attr('data-tags');
             let comments: any[] = [];
             let commentJobs: any[] = [];
             if(!link) {
@@ -76,7 +76,7 @@ export async function fromGB(tags?: string) {
            
             await getComs(body, true);
             
-            $("#paginater > a", body.toString()).each((i, elem) => commentJobs.push('https://gelbooru.com/index.php' + $(elem).attr('href')));
+            $(".pagination > a", body.toString()).each((i, elem) => commentJobs.push('https://gelbooru.com/index.php' + $(elem).attr('href')));
             for (let x of commentJobs)
                 await getComs(x);
             comments = comments.sort((a,b) => b.score - a.score);
