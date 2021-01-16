@@ -283,7 +283,7 @@ export default class H {
         msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
     }
 
-    @register('powtarza odtwarzanie obecnego utworu', '$c (ilość powtórzeń, w przypadku braku tego argumentu utwór powtarzany będzie w nieskończoność)')
+    @register('powtarza odtwarzanie obecnego utworu', '`$c (ilość powtórzeń, w przypadku braku tego argumentu utwór powtarzany będzie w nieskończoność)`')
     static loop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         if(!queue.playing)
             throw new LoggedError(msg.channel, 'Nie ma czego powtarzać', H.embColor as any);
@@ -297,6 +297,7 @@ export default class H {
 
 @subcommandGroup('ponowne odtwarzanie piosenek z historii', H)
 @aliases('rep')
+@notdm
 @extend(repeat.mod)
 class repeat {
     static async mod(msg: c.m, args: c.a, bot: c.b) {
@@ -348,6 +349,7 @@ class repeat {
 
 @subcommandGroup('przestrzenie odtwarzania', H)
 @aliases('ps')
+@notdm
 @extend((m: c.m, a: c.a, b: c.b) => [m, a, b, b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel)])
 class playspace {
     @aliases('c')
