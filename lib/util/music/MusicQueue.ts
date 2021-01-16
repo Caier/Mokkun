@@ -11,6 +11,7 @@ import { IExtGuild } from "../interfaces/DiscordExtended";
 import { getOpusStream } from "./OpusStreamFinder";
 import PlayspaceManager from "./PlayspaceManager";
 import Playspace from "./Playspace";
+import Utils from "../utils";
 
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
@@ -19,6 +20,7 @@ export class MusicQueue extends BaseClient {
     private readonly watchInterval = 1000;
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
+    private toFinish = false;   //should the queue be stopped after current song ends
     playspaceManager: PlayspaceManager;
     queue: MusicEntry[] = [];
     history: IMusicHistory[];
@@ -26,6 +28,7 @@ export class MusicQueue extends BaseClient {
     playing: MusicEntry | null = null;
     outChannel?: TextChannel;
     autoplay = false;
+    loop = 0; //how many times should the current song be looped
 
     constructor(master: MokkunMusic, guild: IExtGuild) { 
         super();
@@ -70,10 +73,17 @@ export class MusicQueue extends BaseClient {
             this.announce('addedToQueue', entry[0]);
         if(entry.length > 1)
             this.announce('addedMultiple', entry as any);
+        this.savePlayspaces();
     }
 
     async playNext() {
-        if(this.queue.length > 0) {
+        if(this.toFinish)
+            this.stop();
+        else if(this.loop > 0) {
+            await this.play(this.playing);
+            this.loop--;
+        }
+        else if(this.queue.length > 0) {
             this.shiftToHistory();
             this.playing = this.queue.shift() as MusicEntry;
             this.savePlayspaces();
@@ -184,12 +194,17 @@ export class MusicQueue extends BaseClient {
         else if(what == 'addedToQueue') {
             let entry : MusicEntry = arguments[1];
             let pos = this.queue.findIndex(v => v.id == entry.id) + 1;
+            let za: string | number;
+            if(pos == 1) {
+                let milis = this.playing?.milisLeft + this.playing.videoInfo.milis * this.loop;
+                za = milis == Infinity ? 'Nigdy' : Utils.milisToReadableTime(milis);
+            }
             embed.setAuthor('Dodano do kolejki')
             .setDescription(`**[${entry.videoInfo.name}](${entry.videoInfo.url})**`)
             .setThumbnail(entry.videoInfo.thumbnail)
             .addField("Kanał", entry.videoInfo.author.name, true)
             .addField("Długość", entry.videoInfo.duration, true)
-            .addField("Za", pos == 1 ? this.playing?.timeLeft : this.timeLeft, true)
+            .addField("Za", za || this.timeLeft, true)
             .addField("Pozycja", pos);
         }
         else if(what == 'removed') {
@@ -207,14 +222,14 @@ export class MusicQueue extends BaseClient {
     }
     
     get milisLeft() {
-        let len = (this.playing?.videoInfo.milis || 0) - (this.playing?.strTime || 0);
+        let len = (this.playing?.videoInfo.milis || 0) - (this.playing?.strTime || 0) + this.playing.videoInfo.milis * this.loop;
         for(let ent of this.queue.slice(0, -1))
             len += ent.videoInfo.milis;
         return len;
     }
 
     get timeLeft() {
-        return new Date(this.milisLeft).toISOString().slice(11, -5).replace(/^0+:?0?/g, '');
+        return this.milisLeft == Infinity ? 'Nigdy' : new Date(this.milisLeft).toISOString().slice(11, -5).replace(/^0+:?0?/g, '');
     }
 
     pause() {
@@ -248,6 +263,7 @@ export class MusicQueue extends BaseClient {
             this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor(`Usunięto ${removed.length} utworów`).addField('Następnie', this.queue[0].videoInfo.name));
         else
             this.announce('removed', removed[0]);
+        this.playspaceManager.current.queue = this.queue;
         
         return wrong;
     }
@@ -291,6 +307,15 @@ export class MusicQueue extends BaseClient {
         this.history = this.playspaceManager.current.history;
         this.queue = this.playspaceManager.current.queue;
         this.savePlayspaces();
+    }
+
+    softStop() {
+        let w = Boolean(this.playing);
+        if(!w)
+            this.stop();
+        else
+            this.toFinish = true;
+        return w;
     }
 
     stop() {
