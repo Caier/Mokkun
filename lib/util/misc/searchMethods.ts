@@ -117,7 +117,7 @@ export async function fromGB(tags?: string, rand = true) {
         
         if(!tags) 
         {
-            ret.push(getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
+            ret.push(() => getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
             return ret;
         }
         
@@ -129,11 +129,11 @@ export async function fromGB(tags?: string, rand = true) {
         
         if(imglinks.length > 0 && rand) {
             let rand = Math.floor(Math.random() * (imglinks.length - 1));
-            ret.push(getSrc(encodeURI(imglinks[rand])));
+            ret.push(() => getSrc(encodeURI(imglinks[rand])));
             imglinks.splice(rand, 1);
         }
         else if(imglinks.length > 0) {
-            ret.push(...imglinks.map(l => getSrc(encodeURI(l))));
+            ret.push(...imglinks.map(l => () => getSrc(encodeURI(l))));
         }
     
         return ret;

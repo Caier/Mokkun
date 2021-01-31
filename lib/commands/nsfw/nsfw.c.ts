@@ -60,9 +60,9 @@ export default class H {
         }
         
         if(sort)
-            await Utils.createPageSelector(msg.channel as any, imgs.map(async i => H.embFromImg(await i, args[1])));
+            await Utils.createPageSelector(msg.channel as any, imgs.map(i => async () => H.embFromImg(await i(), args[1])));
         else {
-            let x = await imgs[0];
+            let x = await imgs[0]();
             let embed = H.embFromImg(x, args[1])
             if(x.comments.length > 1) {
                 let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
