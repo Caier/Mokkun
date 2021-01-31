@@ -45,13 +45,29 @@ export async function fromR34xxx(tags?: string) {
     return ret;
 }
 
-export async function fromGB(tags?: string) {
+interface gbRet {
+    page: string
+    link: string,
+    tags: string,
+    score: string,
+    rating: string,
+    posted: string,
+    id: string,
+    artist: string,
+    comments: {
+        name: string,
+        score: number,
+        comment: string
+    }[]
+}
+
+export async function fromGB(tags?: string, rand = true) {
     let options: AxiosRequestConfig = {
         headers: {
             'cookie': 'fringeBenefits=yup'
         }
     }
-    async function getSrc(url: string)
+    async function getSrc(url: string): Promise<gbRet>
         {
             async function getComs(body: string, noRq?: boolean) {
                 if(!noRq) body = (await ax.get(body, options)).data;
@@ -64,8 +80,11 @@ export async function fromGB(tags?: string) {
                     });
                 });
             }
-            let body = (await ax.get(url, options)).data;
+            let req = await ax.get(url, options);
+            let body = req.data;
             let link = $("#image", body.toString()).attr('src');
+            if(!link)
+                return await getSrc(`http://gelbooru.com/index.php?page=post&s=random`);
             let tags = $(".image-container.note-container", body.toString()).attr('data-tags');
             let comments: any[] = [];
             let commentJobs: any[] = [];
@@ -80,40 +99,41 @@ export async function fromGB(tags?: string) {
             for (let x of commentJobs)
                 await getComs(x);
             comments = comments.sort((a,b) => b.score - a.score);
+            let stats = $('#tag-list > li', body).text().split('Statistics')[1];
             return {
-                    page: url,
+                    page: req.request.res.responseUrl,
                     link: link,
                     tags: tags,
+                    score: stats.split('Score: ')[1].replace(/\D/g, ''),
+                    rating: stats.split('Rating: ')[1].split('Score')[0],
+                    posted: stats.split('Posted: ')[1].split('Upl')[0].trim(),
+                    id: stats.split('Id: ')[1].split('P')[0],
+                    artist: $('.tag-type-artist > a', body).text() || 'Unknown',
                     comments: comments
                    };
         }
         let imglinks: string[] = [];
         let ret = [];
-        let rand;
         
         if(!tags) 
         {
-            ret.push(await getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
+            ret.push(getSrc(`http://gelbooru.com/index.php?page=post&s=random`));
             return ret;
         }
         
-        let body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`, options)).data;
-        
-        try {rand = parseInt($("#paginator > div > a", body.toString()).last().attr('href').replace(/[?A-z=&]/g," ").split(" ").pop());}
-        catch (e) {rand = 0}
-        if(rand > 19992) rand = 19992;
-        rand = (rand > 42) ? Math.floor(Math.random() * (rand - 42)) : 0;
-        
-        body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`, options)).data;
+        let body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}${rand ? '%20sort:random' : ''}`, options)).data;
         
         $(".thumbnail-preview > a", body.toString()).each((i, elem) => {
             imglinks.push($(elem).attr('href'));
         });
         
-        if(imglinks.length > 0) {
-            rand = Math.floor(Math.random() * (imglinks.length - 1));
-            ret.push(await getSrc(encodeURI(imglinks[rand])));
+        if(imglinks.length > 0 && rand) {
+            let rand = Math.floor(Math.random() * (imglinks.length - 1));
+            ret.push(getSrc(encodeURI(imglinks[rand])));
             imglinks.splice(rand, 1);
+        }
+        else if(imglinks.length > 0) {
+            ret.push(...imglinks.map(l => getSrc(encodeURI(l))));
         }
     
         return ret;
