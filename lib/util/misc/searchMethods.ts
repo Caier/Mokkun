@@ -83,8 +83,6 @@ export async function fromGB(tags?: string, rand = true) {
             let req = await ax.get(url, options);
             let body = req.data;
             let link = $("#image", body.toString()).attr('src');
-            if(!link)
-                return await getSrc(`http://gelbooru.com/index.php?page=post&s=random`);
             let tags = $(".image-container.note-container", body.toString()).attr('data-tags');
             let comments: any[] = [];
             let commentJobs: any[] = [];
@@ -92,6 +90,8 @@ export async function fromGB(tags?: string, rand = true) {
                 link = $("#gelcomVideoPlayer > source", body.toString()).attr('src');
                 tags = "video";
             }
+            if(!link)
+                return await getSrc(`http://gelbooru.com/index.php?page=post&s=random`);
            
             await getComs(body, true);
             
