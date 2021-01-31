@@ -1,4 +1,4 @@
-import { group, aliases, register, CmdParams as c, nsfw, deprecated } from "../../util/cmdUtils";
+import { group, aliases, register, CmdParams as c, nsfw, deprecated, subcommandGroup } from "../../util/cmdUtils";
 import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { LoggedError } from "../../util/errors/errors";
@@ -9,6 +9,18 @@ import { IExtMessage } from "../../util/interfaces/DiscordExtended";
 @nsfw
 @group("NSFW")
 export default class H {
+    static embFromImg(x: any, s?: string) {
+        let embed = new SafeEmbed();
+        if(x.tags != "video") {
+            embed.setFooter(`ID: ${x.id}, Score: ${x.score}, Rating: ${x.rating}, Artist: ${x.artist}, Posted: ${x.posted}\nTags: ` + x.tags).setImage(x.link).setTitle((!s || s == '') ? "random" : s)
+                 .setURL(x.page).setColor("#006ffa").setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/");
+            if(x.comments.length != 0) 
+                embed.addField(`${x.comments[0].name}:`, x.comments[0].comment);
+        } 
+        else embed = x.link;
+        return embed;
+    }
+
     static async newPostReact(msg: Message, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
         await msg.react('🔄');
         await msg.react('🔒');
@@ -33,40 +45,36 @@ export default class H {
         });
     }
 
-    @aliases('gelbooru')
-    @register('G E L B O O R U - obrazki thotów na wyciągnięcie ręki', '`$pgb {wyszukanie}` - zobacz sam')
-    static gb(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
+    @register(':peepSelfie:', '`$c {wyszukanie}` - zobacz sam')
+    static async gb(msg: c.m, args: c.a, bot: c.b) {
+        args = bot.newArgs(msg, { freeargs: 1 });
         const color = "#006ffa";
+        let sort = args[1].includes('sort:');
 
-        msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => {
-            let imgs = await fromGB(args[1]);
+        let nmsg = await msg.channel.send(bot.emb('Zbieranie postów...', color));
+        let imgs = await fromGB(args[1], !sort);
 
-            for (let x of imgs) {
-                let embed: any = new SafeEmbed();
-                if(x.tags != "video") {
-                    embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1])
-                         .setURL(x.page).setColor(color).setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/");
-                    if(x.comments.length != 0) 
-                        embed.addField(`${x.comments[0].name}:`, x.comments[0].comment);
-                } 
-                else embed = x.link;
-
-                if(x.comments.length > 1) {
-                    let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
-                    x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
-                    let embs = emb.populateEmbeds();
-                    let [, nmsg] = await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
-                    H.newPostReact(nmsg as c.m, args[1], 'gb', bot, msg.author.id);
-                }
-                else msg.channel.send(embed).then(nmsg => H.newPostReact(nmsg, args[1], 'gb', bot, msg.author.id));
+        if(!imgs.length) {
+            nmsg.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            return;
+        }
+        
+        if(sort)
+            await Utils.createPageSelector(msg.channel as any, imgs.map(async i => H.embFromImg(await i, args[1])));
+        else {
+            let x = await imgs[0];
+            let embed = H.embFromImg(x, args[1])
+            if(x.comments.length > 1) {
+                let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
+                x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
+                let embs = emb.populateEmbeds();
+                let [, nmsg] = await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
+                H.newPostReact(nmsg as c.m, args[1], 'gb', bot, msg.author.id);
             }
-    
-            if(imgs.length == 0)
-                msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
-            else 
-                msgn.delete({timeout: 150});
-        }).catch(e => { throw new LoggedError(msg.channel as any, e.message) });
+            else msg.channel.send(embed).then(nmsg => H.newPostReact(nmsg, args[1], 'gb', bot, msg.author.id));
+        }
+
+        nmsg.delete();
     }
 
     @aliases('rule34')
