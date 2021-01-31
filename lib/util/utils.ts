@@ -1,4 +1,4 @@
-import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector } from 'discord.js';
+import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { SafeEmbed } from './embed/SafeEmbed';
@@ -110,13 +110,14 @@ namespace Utils {
      * @param opts.collOpts Options of the reactionCollector
      * @returns Reaction collector
      */
-    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], collOpts?: CollectorOptions}) {
+    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, collOpts?: CollectorOptions}) {
         let cache: MessageEmbed[] = [];
         ///@ts-ignore
         const getPage = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await pages[i]() || await pages[i]);
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
-        let nmsg = await channel.send(await getPage(0));
+        let nmsg = opts?.toEdit ? await opts.toEdit.edit(await getPage(0)) : await channel.send(await getPage(0));
         let curPage = 0;
+        if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
         for(let em of emojis.filter(Boolean))
             await nmsg.react(em);
         let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot &&
@@ -130,6 +131,7 @@ namespace Utils {
                 case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(await getPage(pages.length - 1)); break;
                 case emojis[4]: nmsg.delete({timeout: 150});
             }
+            if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
         });
         return [coll, nmsg];
     }

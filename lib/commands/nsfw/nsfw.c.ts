@@ -1,10 +1,8 @@
 import { group, aliases, register, CmdParams as c, nsfw, deprecated, subcommandGroup } from "../../util/cmdUtils";
 import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
-import { LoggedError } from "../../util/errors/errors";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import { Message, MessageReaction, User } from "discord.js";
-import { IExtMessage } from "../../util/interfaces/DiscordExtended";
+import { Message, MessageEmbed, MessageReaction, User } from "discord.js";
 
 @nsfw
 @group("NSFW")
@@ -21,46 +19,57 @@ export default class H {
         return embed;
     }
 
-    static async newPostReact(msg: Message, tags: string, method: 'r34'|'gb', bot: c.b, author: string) {
+    static async newPostReact(msg: Message, method: (ret: boolean) => void | Promise<(MessageEmbed | string) | (MessageEmbed | string)[]>) {
         await msg.react('🔄');
         await msg.react('🔒');
-        let deletable = true;
-        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name), {time: Utils.parseTimeStrToMilis('10m')});
+        let save = false;
+        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name));
         let r = (react: MessageReaction, user: User) => {
-            deletable = false;
+            save = true;
             r = () => react.users.remove(user);
         };
-        coll.on('collect', (react, user) => {
+        coll.on('collect', async (react, user) => {
             if(react.emoji.name == '🔒')
                 r(react, user);
             else if(react.emoji.name == '🔄') {
-                if(deletable)
-                    msg.delete({timeout: 150});
-                react.remove();
-                coll.stop();
-                msg.content = `.${method} ${tags}`;
-                msg.author = user;
-                bot.commands.get(method).execute(msg as IExtMessage, [method, tags], bot);
+                if(msg.flags.has('SUPPRESS_EMBEDS'))
+                    msg.suppressEmbeds(false);
+                react.users.remove(user.id);
+                if(save) {
+                    coll.stop();
+                    react.remove();
+                    method(false);
+                }
+                else {
+                    let res = await method(true);
+                    if(Array.isArray(res))
+                        Utils.createPageSelector(msg.channel as any, res as any, {toEdit: msg, emojis: [null, `◀`, `▶`]});
+                    else {
+                        msg.edit(res as MessageEmbed);
+                        if(typeof res == 'string')
+                            msg.suppressEmbeds(true);
+                    }
+                }
             }
         });
     }
 
     @register(':peepSelfie:', '`$c {wyszukanie}` - zobacz sam')
-    static async gb(msg: c.m, args: c.a, bot: c.b) {
+    static async gb(msg: c.m, args: c.a, bot: c.b, ret = false) {
         args = bot.newArgs(msg, { freeargs: 1 });
         const color = "#006ffa";
         let sort = args[1].includes('sort:');
 
-        let nmsg = await msg.channel.send(bot.emb('Zbieranie postów...', color));
+        let nmsg = !ret && await msg.channel.send(bot.emb('Zbieranie postów...', color)); 
         let imgs = await fromGB(args[1], !sort);
 
         if(!imgs.length) {
-            nmsg.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            nmsg?.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
             return;
         }
         
-        if(sort)
-            await Utils.createPageSelector(msg.channel as any, imgs.map(i => async () => H.embFromImg(await i(), args[1])));
+        if(sort && !ret)
+            await Utils.createPageSelector(msg.channel as any, imgs.map(i => async () => H.embFromImg(await i(), args[1])), {toEdit: nmsg});
         else {
             let x = await imgs[0]();
             let embed = H.embFromImg(x, args[1])
@@ -68,39 +77,48 @@ export default class H {
                 let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
                 x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
                 let embs = emb.populateEmbeds();
-                let [, nmsg] = await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {emojis: [null, `◀`, `▶`]});
-                H.newPostReact(nmsg as c.m, args[1], 'gb', bot, msg.author.id);
+                if(ret)
+                    return [embed, ...(embs.length > 0 ? embs : [emb])];
+                await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {toEdit: nmsg, emojis: [null, `◀`, `▶`]});
+                H.newPostReact(nmsg, r => H.gb(msg, args, bot, r));
             }
-            else msg.channel.send(embed).then(nmsg => H.newPostReact(nmsg, args[1], 'gb', bot, msg.author.id));
+            else if(ret)
+                return embed;
+            else {
+                nmsg.edit(embed).then(nmsg => H.newPostReact(nmsg, r => H.gb(msg, args, bot, r)));
+                x.tags == 'video' && await nmsg.suppressEmbeds(true);
+            }
         }
-
-        nmsg.delete();
     }
 
     @aliases('rule34')
     @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
-    static r34(msg: c.m, args: c.a, bot: c.b) {
+    static async r34(msg: c.m, args: c.a, bot: c.b, ret = false) {
         args = bot.getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#e400e8";
 
-        msg.channel.send(bot.embgen(color, `Zbieranie postów...`)).then(async msgn => 
-        {
-            let imgs = await fromR34xxx(args[1]);
+        let nmsg = !ret && await msg.channel.send(bot.emb('Zbieranie postów...', color)); 
+        let imgs = await fromR34xxx(args[1]);
 
-            for (let x of imgs)
-            {
-                if(x.tags != "video")
-                {
-                    let embed = new SafeEmbed();
-                    embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.link).setColor(color).setAuthor("rule34", "https://i.imgur.com/vRZar64.png", "http://rule34.xxx/");
-                    msg.channel.send(embed).then(mmsg => H.newPostReact(mmsg, args[1], 'r34', bot, msg.author.id));
-                } 
-                else msg.channel.send(x.link).then(mmsg => H.newPostReact(mmsg, args[1], 'r34', bot, msg.author.id));
-            }
-    
-            if(imgs.length == 0) msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
-            else msgn.delete({timeout: 150});
-        });
+        if(!imgs.length) {
+            nmsg?.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            return;
+        }
+
+        let x = imgs[0];
+        if(x.tags != "video") {
+            let embed = new SafeEmbed();
+            embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.link).setColor(color).setAuthor("rule34", "https://i.imgur.com/vRZar64.png", "http://rule34.xxx/");
+            if(ret)
+                return embed;
+            nmsg.edit(embed).then(mmsg => H.newPostReact(mmsg, r => H.r34(msg, args, bot, r)));
+        }
+        else if(ret)
+            return x.link;
+        else {
+            nmsg.edit(x.link).then(mmsg => H.newPostReact(mmsg, r => H.r34(msg, args, bot, r)));
+            await nmsg.suppressEmbeds(true);
+        }
     }
 
     @aliases('nhentai')
