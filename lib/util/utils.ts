@@ -110,21 +110,24 @@ namespace Utils {
      * @param opts.collOpts Options of the reactionCollector
      * @returns Reaction collector
      */
-    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[], opts?: {triggers?: string[], emojis?: string[], collOpts?: CollectorOptions}) {
+    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], collOpts?: CollectorOptions}) {
+        pages.forEach((v: typeof pages[0], i: number, a: typeof pages) => typeof v != 'function' && (a[i] = () => v as any));
+        pages = pages as (() => Promise<MessageEmbed>)[];
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
-        let nmsg = await channel.send(await pages[0]);
+        let nmsg = await channel.send(await pages[0]());
         let curPage = 0;
         for(let em of emojis.filter(Boolean))
             await nmsg.react(em);
         let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot &&
             emojis.includes(react.emoji.name) && (!opts?.triggers || opts?.triggers.includes(user.id)), opts?.collOpts || {time: 120000});
         coll.on('collect', async (react, user) => {
+            pages = pages as (() => Promise<MessageEmbed>)[];
             if(channel instanceof TextChannel) react.users.remove(user.id);
             switch(react.emoji.name) {
-                case emojis[0]: (curPage = 0) || nmsg.edit(await pages[0]); break;
-                case emojis[1]: curPage > 0 && nmsg.edit(await pages[--curPage]); break;
-                case emojis[2]: curPage < pages.length - 1 && nmsg.edit(await pages[++curPage]); break;
-                case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(await pages[pages.length - 1]); break;
+                case emojis[0]: (curPage = 0) || nmsg.edit(await pages[0]()); break;
+                case emojis[1]: curPage > 0 && nmsg.edit(await pages[--curPage]()); break;
+                case emojis[2]: curPage < pages.length - 1 && nmsg.edit(await pages[++curPage]()); break;
+                case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(await pages[pages.length - 1]()); break;
                 case emojis[4]: nmsg.delete({timeout: 150});
             }
         });
