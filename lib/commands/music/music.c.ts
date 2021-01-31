@@ -287,9 +287,9 @@ export default class H {
     static loop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         if(!queue.playing)
             throw new LoggedError(msg.channel, 'Nie ma czego powtarzać', H.embColor as any);
-        if(!args[1] || !isNaN(+args[1]) && +args[1] > 0) {
-            queue.loop = +args[1] || Infinity;
-            msg.channel.send(H.emb(`Obecny utwór zostanie powtórzony ${+args[1] || 'nieskończoność'} razy.`));
+        if(!args[1] || !isNaN(+args[1]) && +args[1] >= 0) {
+            queue.loop = +args[1] ?? Infinity;
+            msg.channel.send(H.emb(`Obecny utwór zostanie powtórzony ${+args[1] ?? 'nieskończoność'} razy.`));
         }
         else msg.channel.send(H.emb('Niepoprawna ilość powtórzeń'));
     }
