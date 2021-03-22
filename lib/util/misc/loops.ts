@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import { Mokkun } from '../../mokkun';
-import { TextChannel } from 'discord.js';
+import { DiscordAPIError, TextChannel } from 'discord.js';
 import files from './files';
 import { IRemind } from '../interfaces/IRemind';
 
@@ -33,16 +33,21 @@ export async function _reminders(bot: Mokkun) {
                 let x = r as any;
                 let embed = new bot.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
                 let target = (x.where.isUser) ? "users" : "channels";
-                let chan = await (bot as any)[target].fetch(x.where.channel);
+                let chan = await (bot as any)[target].fetch(x.where.channel).catch(()=>{});
                 chan && chan.send(embed);
                 rems = rems.filter((e: any) => e.id != x.id);
                 bot.db.save(`System.reminders`, rems);
             }
             else {
                 let emb = new bot.RichEmbed().setColor('#00ffff').setAuthor('Przypomnienie').setDescription(r.content).addField('Od', `<@${r.author}>`);
-                let msg = (await ((await bot.channels.fetch(r.createdIn)) as TextChannel)?.send(emb));
-                if(msg)
-                    rems = rems.filter(re => re.id != r.id);
+                try {
+                    let msg = (await ((await bot.channels.fetch(r.createdIn)) as TextChannel)?.send(emb));
+                    if(msg)
+                        rems = rems.filter(re => re.id != r.id);
+                } catch(e) {
+                    if(e instanceof DiscordAPIError)
+                        rems = rems.filter(re => re.id != r.id);
+                }
                 bot.db.save('System.reminders', rems);
             }
         }
