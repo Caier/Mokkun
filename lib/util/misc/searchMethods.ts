@@ -81,6 +81,7 @@ export async function fromGB(tags?: string, rand = true) {
                 });
             }
             let req = await ax.get(url, options);
+            
             let body = req.data;
             let link = $("#image", body.toString()).attr('src');
             let tags = $(".image-container.note-container", body.toString()).attr('data-tags');
@@ -130,7 +131,6 @@ export async function fromGB(tags?: string, rand = true) {
         if(imglinks.length > 0 && rand) {
             let rand = Math.floor(Math.random() * (imglinks.length - 1));
             ret.push(() => getSrc(encodeURI(imglinks[rand])));
-            imglinks.splice(rand, 1);
         }
         else if(imglinks.length > 0) {
             ret.push(...imglinks.map(l => () => getSrc(encodeURI(l))));
