@@ -1,51 +1,80 @@
 import ax, { AxiosRequestConfig } from 'axios';
 import $ from 'cheerio';
+import https from 'https';
+import Utils from '../utils';
+const agent = new https.Agent({  
+    rejectUnauthorized: false
+});
 
-export async function fromR34xxx(tags?: string) {
-    async function getSrc(url: string)
-    {
-        let body = (await ax.get(url)).data;
-        let link = $("#image", body.toString()).attr('src');
-        let tags = $("#image", body.toString()).attr('alt');
-        if(link == undefined) {
-            link = $("#gelcomVideoPlayer > source", body.toString()).attr('src');
+export async function fromBooru(booru: string, tags?: string) {
+    async function getSrc(url: string): Promise<gbRet> {
+        let req;
+        try {
+            req = await ax.get(url, { httpsAgent: agent });
+        } catch {
+            throw Error(base + " nie istnieje 😡");
+        }
+        let body = req.data;
+        let link = ((fur && !r34) ? "https://images.weserv.nl/?url=" : '') + $("#image", body).attr('src')?.replace("furry.booru.org/", "190.2.148.183");
+        let tags = fur ? $("#image", body).attr('alt') : $("#tags", body).text();
+        let comments: any[] = [];
+        if(!link || link == 'undefined') {
+            link = $("#gelcomVideoPlayer > source", body).attr('src');
             tags = "video";
         }
+        if(!link)
+            return await getSrc(base + `index.php?page=post&s=random`);
+       
+        $(r34 ? '#comment-list > div[id^="c"]' : fur ? '#content div[id^="c"]' : '#note-container > div[id^="c"]', body).each((i, elem) => {
+            comments.push({
+                name: $('a', elem).eq(0).text(),
+                score: +$(elem).text().replace(/\n/g, '').split("Score: ").pop().split("(v")[0].trim(),
+                comment: $(elem).text().replace(/\n/g, '').split(r34 ? "mment)" : "spam)").pop().split('posts[')[0].trim()
+            });
+        });
+        comments = comments.sort((a,b) => b.score - a.score);
+        
+        let stats = fur ? $('#stats', body).text() : $('#tag_list', body).text();
         return {
-                "link": link,
-                "tags": tags
-               };
+            base,
+            page: req.request.res.responseUrl,
+            link: link,
+            tags: tags,
+            score: stats.split('Score:')[1].split('(')[0].trim(),
+            rating: stats.split('Rating:')[1].split('Sc')[0].trim(),
+            posted: stats.split('Posted:')[1].split(fur ? 'b' : 'B')[0].trim(),
+            id: stats.split('Id:')[1].split('P')[0].trim(),
+            artist: stats.split(fur ? 'by' : 'By:')[1].split('S')[0].trim() || 'Unknown',
+            comments: comments
+        };
     }
-    let imglinks: any[] = [];
-    let ret = [];
-    let rand;
+
+    booru = booru.toLowerCase().trim().replace(/\W/g, '');
+    let r34 = booru == 'r34';
+    let fur = r34 || booru == 'furry';
+    let base = r34 ? 'https://rule34.xxx/' : fur ? `https://190.2.148.183/` : `https://${booru}.booru.org/`;
     
-    if(!tags) 
-    {
-        ret.push(await getSrc(`http://rule34.xxx/index.php?page=post&s=random`));
-        return ret;
+    if(!tags)
+        return [await getSrc(base + 'index.php?page=post&s=random')];
+    
+    let body, links: string[] = [];
+    try {
+        body = (await ax.get(base + `index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`, { httpsAgent: agent })).data;
+    } catch {
+        throw Error(base + " nie istnieje 😡");
     }
-    let body = (await ax.get(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}`)).data; 
-    try {rand = parseInt($("#paginator > div > a", body.toString()).last().attr('href').replace(/[?A-z=&]/g," ").split(" ").pop());}
-    catch (e) {rand = 0}
-    if(rand > 200000) rand = 200000;
-    rand = (rand > 42) ? Math.floor(Math.random() * (rand - 42)) : 0;
+    let post = +$(!fur ? '#paginator > a' : "#paginator > div > a", body).last().attr('href')?.replace(/\D/g, '') || 0;
+    if(post > (r34 ? 200000 : 2000000)) post = (r34 ? 200000 : 2000000);
+    post = (post > (r34 ? 42 : fur ? 40 : 20)) ? Utils.rand(0, post) : 0;
+
+    body = (await ax.get(base + `index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${post}`, { httpsAgent: agent })).data;
+    $(!fur ? ".content > div > div > span > a" : ".content > div > span a", body).each((i, elem) => links.push(base + $(elem).attr('href')));
     
-    body = (await ax.get(`http://rule34.xxx/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}&pid=${rand}`)).data;
-    $(".content > div > span a", body.toString()).each((i, elem) => {
-        imglinks.push("http://rule34.xxx/" + $(elem).attr('href'));
-    });
-    
-    if(imglinks.length > 0) {
-        rand = Math.floor(Math.random() * (imglinks.length - 1));
-        ret.push(await getSrc(imglinks[rand]));
-        imglinks.splice(rand, 1);
-    }
-    
-    return ret;
+    return links.length ? [await getSrc(links[Utils.rand(0, links.length - 1)])] : [];
 }
 
 interface gbRet {
+    base?: string
     page: string
     link: string,
     tags: string,
