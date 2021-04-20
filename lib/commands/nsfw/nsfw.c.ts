@@ -1,5 +1,5 @@
 import { group, aliases, register, CmdParams as c, nsfw, deprecated, subcommandGroup } from "../../util/cmdUtils";
-import { fromGB, fromR34xxx, fromNH, fromPH } from '../../util/misc/searchMethods';
+import { fromGB, fromBooru, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { Message, MessageEmbed, MessageReaction, User } from "discord.js";
@@ -91,14 +91,14 @@ export default class H {
         }
     }
 
-    @aliases('rule34')
-    @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
-    static async r34(msg: c.m, args: c.a, bot: c.b, ret = false) {
-        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
-        const color = "#e400e8";
+    @register('scraper wielu .booru', '`$c {nazwa booru} {wyszukanie}')
+    @aliases('b')
+    static async booru(msg: c.m, args: c.a, bot: c.b, ret = false) {
+        args = bot.newArgs(msg, {freeargs: 2});
+        const color = "#7750ff";
 
         let nmsg = !ret && await msg.channel.send(bot.emb('Zbieranie postów...', color)); 
-        let imgs = await fromR34xxx(args[1]);
+        let imgs = await fromBooru(args[1], args[2]);
 
         if(!imgs.length) {
             nmsg?.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
@@ -107,18 +107,26 @@ export default class H {
 
         let x = imgs[0];
         if(x.tags != "video") {
-            let embed = new SafeEmbed();
-            embed.setFooter(x.tags).setImage(x.link).setTitle((!args[1] || args[1] == '') ? "random" : args[1]).setURL(x.link).setColor(color).setAuthor("rule34", "https://i.imgur.com/vRZar64.png", "http://rule34.xxx/");
+            let embed = H.embFromImg(x, args[2]);
+            embed?.setColor(color)?.setAuthor(args[1] == 'furry' ? 'furry.booru' : x.base.split('//')[1].split('.').slice(0, -1).join('.'), "https://cdn.discordapp.com/attachments/752238790323732494/833855293405265950/3gG6lQMl.png", x.base);
             if(ret)
                 return embed;
-            nmsg.edit(embed).then(mmsg => H.newPostReact(mmsg, r => H.r34(msg, args, bot, r)));
+            nmsg.edit(embed).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
         }
         else if(ret)
             return x.link;
         else {
-            nmsg.edit(x.link).then(mmsg => H.newPostReact(mmsg, r => H.r34(msg, args, bot, r)));
+            nmsg.edit(x.link).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
             await nmsg.suppressEmbeds(true);
         }
+    }
+
+    @aliases('rule34')
+    @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
+    static async r34(msg: c.m, args: c.a, bot: c.b, ret = false) {
+        args = bot.newArgs(msg, {freeargs: 1});
+        msg.content = `${msg.prefix}b r34 ${args[1]}`;
+        H.booru(msg, args, bot, ret);
     }
 
     @aliases('nhentai')
