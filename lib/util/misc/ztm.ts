@@ -1,10 +1,12 @@
 import ax from 'axios';
 import fs from 'fs';
-import { ShortResponse, SIPDelay, SIPResponse } from '../interfaces/ztm';
+import { ShortResponse, SIPDelay, SIPResponse, ZTMNews } from '../interfaces/ztm';
 import Utils from '../utils';
+import $ from 'cheerio';
 const milis = Utils.parseTimeStrToMilis;
 const stopFile = require('./files').default.stopF;
 const stopsUrl = 'https://ckan.multimediagdansk.pl/dataset/c24aa637-3619-4dc2-a171-a23eec8f2172/resource/4c4025f0-01bf-41f7-a39f-d156d201b82b/download/stops.json';
+const newsUrl = 'https://files.cloudgdansk.pl/d/otwarte-dane/ztm/bsk.json';
 const SIPUrl = (id: number|string) => 'http://ckan2.multimediagdansk.pl/delays?stopId=' + id;
 
 async function updateStops() {
@@ -89,4 +91,11 @@ export async function getShort(query: string): Promise<ShortResponse[]> {
     let resp = [...startsWithRes.sort(sorter), ...includesRes.sort(sorter), ...splitRes.sort(sorter)];
     
     return code ? resp.filter(r => r.stopCode == code) : resp;
+}
+
+export async function checkZTMNews(): Promise<ZTMNews> {
+    let news: ZTMNews = (await ax.get(newsUrl)).data;
+    for(let k of news.komunikaty)
+        k.tresc = $('*', k.tresc).text();
+    return news;
 }
