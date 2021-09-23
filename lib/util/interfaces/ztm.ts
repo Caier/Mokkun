@@ -20,3 +20,14 @@ export interface ShortResponse {
     stopDesc: string
     delay: () => Promise<SIPResponse>
 }
+
+export interface ZTMNews {
+    data_wygenerowania: string
+    komunikaty: {
+        tytul: string
+        tresc: string
+        url: string
+        data_rozpoczecia: string
+        data_zakonczenia: string
+    }[]
+}

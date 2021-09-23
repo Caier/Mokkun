@@ -7,4 +7,4 @@ process.on('unhandledRejection', (err: any) =>
     console.error("Unhanded Rejection: " + err.stack)
 );
 
-new Mokkun();
+Mokkun.getInstance();

@@ -1,15 +1,12 @@
 import Discord, { Collection, TextChannel } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
-import isOnline from 'is-online';
-import * as loops from './util/misc/loops';
 import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
 import { LoggedError, SilentError } from './util/errors/errors';
 import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
 import { IExtMessage } from './util/interfaces/DiscordExtended';
-import Utils from './util/utils';
 import { Database } from './util/database/Database';
 import { IDatabase } from './util/database/IDatabaseData';
 import { CmdParams as c } from './util/cmdUtils';
@@ -20,13 +17,12 @@ const __mainPath = process.cwd();
 export let DB: IDatabase;
 
 export class Mokkun extends Discord.Client {
+    private static instance: Mokkun;
     private reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
     private reqDirs = [path.join(__mainPath, 'files', 'temp'),
                        path.join(__mainPath, 'files', 'global')];
     private cmdDir = path.join(__dirname, 'commands');
-    private loopInterval = 3000;
     private guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
-    loopExecCount = 0;
     music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
     sysColor = '#FFFFFE';
@@ -34,7 +30,13 @@ export class Mokkun extends Discord.Client {
     vars: any;
     db: IDatabase;
 
-    constructor(vars?: object) {
+    static getInstance(vars?: {[prop: string]: any}) {
+        if(!this.instance)
+            this.instance = new Mokkun(vars);
+        return this.instance;
+    }
+
+    private constructor(vars?: {[prop: string]: any}) {
         super();
         this.vars = Object.assign({}, process.env, vars);
         this.ensureVars();
@@ -44,6 +46,7 @@ export class Mokkun extends Discord.Client {
         this.commands = this.loadCommands();
         this.loadGuildScripts();
         this.start();
+        import('./tasks');
     }
 
     private ensureVars() {
@@ -85,7 +88,6 @@ export class Mokkun extends Discord.Client {
 
     private start() {
         super.login(this.vars.TOKEN).catch(() => this.reconnect());
-        this.once("ready", () => this.setInterval(() => this.loops(), this.loopInterval));
         this.on("ready", () => this.onReady());
         this.on("message", msg => this.onMessage(msg as IExtMessage));
         this.on("shardDisconnect", () => this.reconnect());
@@ -95,8 +97,9 @@ export class Mokkun extends Discord.Client {
 
     private reconnect() {
         console.error('Fatal connection error with discord gateway, attepting to reconnect in 30 seconds');
+        Mokkun.instance = null;
         this.destroy();
-        setTimeout(() => new Mokkun(this.vars), 30000);
+        setTimeout(() => Mokkun.getInstance(this.vars), 30000);
     }
 
     private onReady() {
@@ -173,13 +176,6 @@ export class Mokkun extends Discord.Client {
             console.error(`Error while executing command ${args[0]}: ${err.stack}`);
             msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
         }
-    }
-
-    private async loops() {
-        if(!await isOnline({timeout: 500})) return;
-        this.loopExecCount++;
-        for(let loop in loops)
-            (loops as any)[loop](this);
     }
 
     getArgs(content: any, prefix: string, splitter?: string, freeargs?: number, arrayExpected?: boolean) {

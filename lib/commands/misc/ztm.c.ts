@@ -89,7 +89,6 @@ export default class {
             bot.sendHelp(msg, 'ztm');
     }
 
-    @deprecated
     @permissions('MANAGE_CHANNELS')
     @register('subskrybuje sytuację komunikacyjną ZTM', '`$pztmsub`')
     static ztmsub(msg: c.m, args: c.a, bot: c.b) {
