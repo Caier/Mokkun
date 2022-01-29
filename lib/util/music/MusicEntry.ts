@@ -1,7 +1,7 @@
 import { StreamDispatcher } from "discord.js";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { TrackEntry } from "@caier/sc/lib/interfaces";
-import uuid from 'uuid/v4';
+import { v4 as uuid } from 'uuid';
 import { IMusicHistory } from "../interfaces/IMusicHistory";
 
 export class MusicEntry {

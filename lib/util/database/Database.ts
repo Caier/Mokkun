@@ -4,7 +4,6 @@ import { IDatabase } from "./IDatabaseData";
 import { BaseClient } from "discord.js";
 
 export class Database extends BaseClient {
-    private readonly dbWatchInterval = 5000;
     private dbPath: string;
     readonly DBinstance: IDatabase;
     private static pubInst: Database;
@@ -17,7 +16,6 @@ export class Database extends BaseClient {
         super();
         this.dbPath = dbPath;
         this.DBinstance = this.prepareDb();
-        this.watchDbForChanges();
         this.addInstanceGetSave();
     }
 
@@ -60,17 +58,6 @@ export class Database extends BaseClient {
             temp[qy.slice(-1)[0]] = data;
             this.save();
         }
-    }
-
-    private watchDbForChanges() {
-        let previousState = JSON.stringify(this.DBinstance);
-
-        this.setInterval(() => {
-            if(JSON.stringify(this.DBinstance) != previousState) {
-                previousState = JSON.stringify(this.DBinstance);
-                this.save();
-            }
-        }, this.dbWatchInterval);
     }
 
     private save() {

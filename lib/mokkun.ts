@@ -1,16 +1,16 @@
-import Discord, { Collection, TextChannel } from 'discord.js';
+import Discord, { Collection } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
-import { LoggedError, SilentError } from './util/errors/errors';
 import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
 import { IExtMessage } from './util/interfaces/DiscordExtended';
 import { Database } from './util/database/Database';
 import { IDatabase } from './util/database/IDatabaseData';
 import { CmdParams as c } from './util/cmdUtils';
 import files from './util/misc/files';
+import BaseEventHandler from './events/BaseEventHandler';
 
 const __mainPath = process.cwd();
 
@@ -22,7 +22,7 @@ export class Mokkun extends Discord.Client {
     private reqDirs = [path.join(__mainPath, 'files', 'temp'),
                        path.join(__mainPath, 'files', 'global')];
     private cmdDir = path.join(__dirname, 'commands');
-    private guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
+    guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
     music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
     sysColor = '#FFFFFE';
@@ -43,6 +43,7 @@ export class Mokkun extends Discord.Client {
         this.ensureDirs();
         this.db = Database.getInstance(this.vars.DB_PATH).DBinstance;
         DB = this.db;
+        this.loadEvents();
         this.commands = this.loadCommands();
         this.loadGuildScripts();
         this.start();
@@ -58,6 +59,14 @@ export class Mokkun extends Discord.Client {
     private ensureDirs() {
         for(let dir of this.reqDirs)
             fs.ensureDirSync(dir);
+    }
+
+    private async loadEvents() {
+        for(let evF of Util.dirWalk(path.join(__dirname, 'events', 'handlers')).filter(f => f.endsWith('.e.js'))) {
+            let handlers = await import(path.join(__dirname, 'events', 'handlers', evF));
+            for(let H of Object.values(handlers) as typeof BaseEventHandler[])
+                new H(this);
+        }
     }
 
     private loadCommands() {
@@ -87,95 +96,9 @@ export class Mokkun extends Discord.Client {
     }
 
     private start() {
-        super.login(this.vars.TOKEN).catch(() => this.reconnect());
-        this.on("ready", () => this.onReady());
-        this.on("message", msg => this.onMessage(msg as IExtMessage));
-        this.on("shardDisconnect", () => this.reconnect());
+        super.login(this.vars.TOKEN);
         this.on("error", err => console.error("Websocket error: " + err.message));
         this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
-    }
-
-    private reconnect() {
-        console.error('Fatal connection error with discord gateway, attepting to reconnect in 30 seconds');
-        Mokkun.instance = null;
-        this.destroy();
-        setTimeout(() => Mokkun.getInstance(this.vars), 30000);
-    }
-
-    private onReady() {
-        console.log(`(re)Logged in as ${this.user.tag}`);
-        if(this.db.System.presence) {
-            this.user.setActivity(this.db.System.presence.name, {type: this.db.System.presence.type.toUpperCase()});
-        }
-    }
-
-    private async onMessage(msg: IExtMessage) {
-        let prefix = msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.';
-        msg.prefix = prefix;
-        msg.channel.data = this.db.Data?.[msg.channel.id];
-        msg.guild && (msg.guild.data = this.db.Data?.[msg.guild.id]);
-
-        if(msg.author.bot) return;
-        
-        let args = this.getArgs(msg.content, prefix);
-
-        if(this.guildScripts.has(msg.guild?.id)) {
-            try {
-                await this.guildScripts.get(msg.guild.id)(msg, args, this);
-            }
-            catch(err) {
-                if(err instanceof SilentError || err instanceof LoggedError)
-                    return;
-                console.error(`Error while executing guild script: ${err.stack}`);
-                msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania skryptu serwerowego :(**\n${err.message}`));
-            }
-        }   
-
-        if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
-            this.db.save(`Data.${msg.guild.id}.prefix`, ".");
-            msg.channel.send(this.emb('Zresetowano prefix do "."'));
-        }
-
-        if(!msg.content.startsWith(prefix)) return;
-        if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
-            msg.channel.send(this.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`));
-            return;
-        }
-
-        await this.executeCommand(msg, args);
-    }
-
-    private async executeCommand(msg: IExtMessage, args: string[], commandScope = this.commands, helpPath: string[] = []) {
-        const reason = (r: string) => msg.channel.send(this.emb(r));
-
-        try {
-            if(commandScope.has(args[0]) || commandScope.has('_')) {
-                let cmd = commandScope.get(args[0]) || commandScope.get('_');
-                if(cmd.deprecated)
-                    reason("**Ta komenda została wyłączona**");
-                else if(cmd.ownerOnly && msg.author.id != this.vars.BOT_OWNER)
-                    reason("**Z tej komendy może korzystać tylko owner bota!**");
-                else if(msg.guild && cmd.nsfw && !(msg.channel as TextChannel).nsfw)
-                    reason("**Ten kanał nie pozwala na wysyłanie wiadomości NSFW!**");
-                else if(cmd.notdm && msg.channel.type == 'dm')
-                    reason("**Z tej komendy nie można korzystać na PRIV!**");
-                else if(msg.guild && cmd.permissions && !cmd.permissions.every(perm => msg.member.permissionsIn(msg.channel).has(perm)))
-                    reason(`**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissionsIn(msg.channel).has(p)).join("\n")}`);
-                else if(cmd.subcommandGroup)
-                    await this.executeCommand(msg, args.slice(1), cmd.subcommands, helpPath.push(cmd.name) && helpPath);
-                else 
-                    await cmd.execute(msg, args, this);
-            }
-            else if(helpPath.length) {
-                this.sendHelp(msg, helpPath);
-            }
-        }
-        catch(err) {
-            if(err instanceof SilentError || err instanceof LoggedError)
-                return;
-            console.error(`Error while executing command ${args[0]}: ${err.stack}`);
-            msg.channel.send(this.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
-        }
     }
 
     getArgs(content: any, prefix: string, splitter?: string, freeargs?: number, arrayExpected?: boolean) {
