@@ -15,7 +15,7 @@ export default class Task extends BaseClient {
         super();
         this.id = (Task.tasks.lastKey() ?? 0) + 1;
         Task.tasks.set(this.id, this);
-        this.setInterval(() => this.preExec(), this.execInterval);
+        setInterval(() => this.preExec(), this.execInterval);
     }
 
     private async preExec() {

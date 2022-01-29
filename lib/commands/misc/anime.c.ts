@@ -1,6 +1,7 @@
 import { group, aliases, register, CmdParams as c, extend } from "../../util/cmdUtils";
 import ax from 'axios';
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
+import Utils from "../../util/utils";
 
 @group('Anime')
 @extend(H.modify)
@@ -9,7 +10,7 @@ export default class H {
         return [msg, bot.newArgs(msg, {freeargs: 1}), bot];
     }
 
-    static charColor = '#a3cb48';
+    static charColor = 0xa3cb48;
 
     @aliases('char')
     @register('wyszukuje szczegółowy opis danej postaci z anime', '`$pcharacter {nazwa postaci (min. 3 znaki)}`')
@@ -21,7 +22,7 @@ export default class H {
 
         let charID = (await ax.get(`https://api.jikan.moe/v3/search/character?q=${encodeURI(args[1])}&limit=1`, {responseType: 'json', validateStatus: s => s == 200 || s == 404})).data?.results?.[0]?.mal_id;
         if(!charID) {
-            msg.channel.send(new SafeEmbed().setColor(H.charColor).setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            Utils.send(msg.channel, new SafeEmbed().setColor(H.charColor).setDescription(`**${msg.author.tag}** nie znaleziono!`));
             return;
         }
         let charInfo = (await ax.get('https://api.jikan.moe/v3/character/' + charID, {responseType: 'json'})).data;
@@ -33,6 +34,6 @@ export default class H {
         charInfo.mangaography.length > 0 && charEmbed.addField('Mangas', charInfo.mangaography.map((a: any) => `[${a.name}](${a.url})`).join(', '));
         charInfo.voice_actors.length > 0 && charEmbed.addField('Voice Actors', charInfo.voice_actors.map((a: any) => `[${a.name.replace(/,/g, '')}](${a.url})`).join(', '));
         
-        msg.channel.send(charEmbed);
+        Utils.send(msg.channel, charEmbed);
     }
 }

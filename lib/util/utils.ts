@@ -1,9 +1,24 @@
-import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message } from 'discord.js';
+import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message, ColorResolvable, ReactionCollectorOptions, TextBasedChannel, Formatters, MessageOptions, Util } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { SafeEmbed } from './embed/SafeEmbed';
 
 namespace Utils {
+    export async function send(channel: TextBasedChannel, content?: string | MessageEmbed, options?: MessageOptions & { split?: boolean, code?: string }) {
+        if(content instanceof MessageEmbed)
+            return await channel.send({ ...options, embeds: [content] });
+        if(options?.split) {
+            let msgs = Util.splitMessage(content);
+            let lastM: Message;
+            for(let m in msgs)
+                lastM = await channel.send({ content: m, ...options });
+            return lastM;
+        }
+        else if(options?.code)
+            return await channel.send({ content: Formatters.codeBlock(options.code, content), ...options });
+        return await channel.send({ content, ...options });
+    }
+
     /**
      * A function that converts a human timestamp to epoch
      * @param timeStr The time string in the `*M*d*h*m*s` format (order is not inportant)
@@ -48,7 +63,7 @@ namespace Utils {
      * @param before Which message should be the starting point for fetching
      * @returns A collection of messages keyed by their ids
      */
-    export async function fetchMsgs(msg: Discord.Message, much: number, user: string, before: string) {
+    export async function fetchMsgs(msg: Message, much: number, user: string, before: string) {
         let msgs = await msg.channel.messages.fetch((before) ? {limit: 100, before: before} : {limit: 100});
         if(msgs.size == 0) return msgs;
         let fmsg = msgs?.last()?.id;
@@ -110,7 +125,7 @@ namespace Utils {
      * @param opts.collOpts Options of the reactionCollector
      * @returns Reaction collector
      */
-    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, collOpts?: CollectorOptions}) {
+    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, collOpts?: ReactionCollectorOptions}) {
         let cache: MessageEmbed[] = [];
         ///@ts-ignore
         const getPage = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await pages[i]() || await pages[i]);
@@ -120,8 +135,8 @@ namespace Utils {
         if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
         for(let em of emojis.filter(Boolean))
             await nmsg.react(em);
-        let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot &&
-            emojis.includes(react.emoji.name) && (!opts?.triggers || opts?.triggers.includes(user.id)), opts?.collOpts || {time: 600_000});
+        let coll = nmsg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot &&
+            emojis.includes(react.emoji.name) && (!opts?.triggers || opts?.triggers.includes(user.id)), ...opts?.collOpts || {time: 600_000}});
         coll.on('collect', async (react, user) => {
             if(channel instanceof TextChannel) react.users.remove(user.id);
             switch(react.emoji.name) {
@@ -129,7 +144,7 @@ namespace Utils {
                 case emojis[1]: curPage > 0 && nmsg.edit(await getPage(--curPage)); break;
                 case emojis[2]: curPage < pages.length - 1 && nmsg.edit(await getPage(++curPage)); break;
                 case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(await getPage(pages.length - 1)); break;
-                case emojis[4]: nmsg.delete({timeout: 150});
+                case emojis[4]: nmsg.delete();
             }
             if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
         });
@@ -169,22 +184,22 @@ namespace Utils {
      * @param emojis Emojis which are going to be used as reactions
      * @returns `true` if user answered yes, `false` if user answered no
      */
-    export function confirmBox(channel: TextChannel | DMChannel, question: string, who: User, color = '#bc0000', emojis = ['✅', '❌']) : Promise<boolean> {
+    export function confirmBox(channel: TextChannel, question: string, who: User, color = '#bc0000' as ColorResolvable, emojis = ['✅', '❌']) : Promise<boolean> {
         return new Promise(async res => {
             let c = false;
-            let msg = await channel.send(new SafeEmbed({author: {name: 'Uwaga!'}, description: question, color: color, footer: {text: 'Zdecyduj, używając poniższych reakcji'}}));
+            let msg = await send(channel, new SafeEmbed({author: {name: 'Uwaga!'}, description: question, color: color, footer: {text: 'Zdecyduj, używając poniższych reakcji'}}));
             for(let e of emojis)
                 await msg.react(e);
-            let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && user.id == who.id && emojis.includes(react.emoji.name), {time: 120000});
+            let coll = msg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot && user.id == who.id && emojis.includes(react.emoji.name), time: 120000 });
             coll.on('collect', react => {
                 c = true;
                 res(react.emoji.name == emojis[0]);
                 coll.stop();
             });
             coll.on('end', () => {
-                msg.delete({timeout: 150});
+                msg.delete();
                 if(!c) {
-                    channel.send(new SafeEmbed({color: color, author: {name: "Użytkownik nie wybrał żadnej z opcji."}}));
+                    send(channel, new SafeEmbed({color: color, author: {name: "Użytkownik nie wybrał żadnej z opcji."}}));
                     res(false);
                 }
             });

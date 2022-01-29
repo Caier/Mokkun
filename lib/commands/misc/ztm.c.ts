@@ -38,12 +38,12 @@ export default class {
         args = bot.newArgs(msg, {freeargs: 1});
 
         let send = (cont: any, ID: string|number) =>
-            msg.channel.send(cont).then(async nmsg => {
+            Utils.send(msg.channel, cont).then(async nmsg => {
                 await nmsg.react('🔄');
-                let coll = nmsg.createReactionCollector((react: MessageReaction, user: User) => !user.bot, {time: 86400000});
+                let coll = nmsg.createReactionCollector({filter: (react: MessageReaction, user: User) => !user.bot, time: 86400000});
                 coll.on('collect', async (react, user) => {
                     if(nmsg.channel instanceof TextChannel) react.users.remove(user.id);
-                    nmsg.edit(genEstEmb(await ztm.getSIP(ID)));
+                    nmsg.edit({ embeds: [genEstEmb(await ztm.getSIP(ID))] });
                 })
             });
 
@@ -51,11 +51,11 @@ export default class {
             send(genEstEmb(await ztm.getSIP(args[1])), args[1]);
         else if(args[1]) {
             let result = await ztm.getShort(args[1]).catch(err => {
-                msg.channel.send(bot.emb('Wyszukanie nie spełnia wymogów', 13632027, true).setDescription('Wyszukanie musi składać się z min. 3 znaków. \nPrzykłady:\n`pomo` - wyszuka wszystki przystanki, które zaczynają się od, lub zawierają w sobie "pomo"\n\n`oli1` lub `oli01` lub `oli 1` lub `oli 01` - tak jak poprzednio, dodatkowo odfiltruje przystanki których numer jest inny niż 1\n\n`dwo gł` lub `d g` lub `d g 4` lub `d g4`- wyszuka wszystkie przystanki, których kolejne słowa w nazwie zaczynają się od podanych liter rozdzielonych spacją'));
+                Utils.send(msg.channel, bot.emb('Wyszukanie nie spełnia wymogów', 13632027, true).setDescription('Wyszukanie musi składać się z min. 3 znaków. \nPrzykłady:\n`pomo` - wyszuka wszystki przystanki, które zaczynają się od, lub zawierają w sobie "pomo"\n\n`oli1` lub `oli01` lub `oli 1` lub `oli 01` - tak jak poprzednio, dodatkowo odfiltruje przystanki których numer jest inny niż 1\n\n`dwo gł` lub `d g` lub `d g 4` lub `d g4`- wyszuka wszystkie przystanki, których kolejne słowa w nazwie zaczynają się od podanych liter rozdzielonych spacją'));
                 throw new SilentError(err);
             });
             if(result.length == 0) {
-                msg.channel.send(bot.emb('Nie znaleziono', 13632027, true));
+                Utils.send(msg.channel, bot.emb('Nie znaleziono', 13632027, true));
                 return;
             }
             else if(result.length == 1)
@@ -66,8 +66,8 @@ export default class {
                     prz += `${x}. ${result[x].stopDesc} ${result[x].stopCode}\n`;
                 let embed = new bot.RichEmbed().setColor(13632027).setDescription(`Znaleziono więcej niż jeden pasujący przystanek. Wybierz jeden odpisując numer lub \"stop\" aby zakończyc.\n\n${prz}`);
                 
-                msg.channel.send(embed).then(async nmsg => {
-                    let coll = nmsg.channel.createMessageCollector((rmsg: Message) => rmsg.author.id == msg.author.id, {time: Utils.parseTimeStrToMilis('2m')});
+                Utils.send(msg.channel, embed).then(async nmsg => {
+                    let coll = nmsg.channel.createMessageCollector({ filter: (rmsg: Message) => rmsg.author.id == msg.author.id, time: Utils.parseTimeStrToMilis('2m')});
                     let remsg: Message;
                     coll.on('collect', async rmsg => {
                         remsg = rmsg;
@@ -79,8 +79,8 @@ export default class {
                             coll.stop();
                     });
                     coll.on('end', () => {
-                        remsg?.delete({timeout: 150});
-                        nmsg.delete({timeout: 150});
+                        remsg?.delete();
+                        nmsg.delete();
                     });
                 });
             } 
@@ -92,14 +92,14 @@ export default class {
     @permissions('MANAGE_CHANNELS')
     @register('subskrybuje sytuację komunikacyjną ZTM', '`$pztmsub`')
     static ztmsub(msg: c.m, args: c.a, bot: c.b) {
-        let sub = (msg.channel.type == 'dm') ? msg.author.id : msg.channel.id;
-        let type = (msg.channel.type == 'dm') ? "users" : "channels";
+        let sub = (msg.channel.type == 'DM') ? msg.author.id : msg.channel.id;
+        let type = (msg.channel.type == 'DM') ? "users" : "channels";
         if((bot.db.get(`System.newsSubs.${type}`) || []).includes(sub)) {
             bot.db.save(`System.newsSubs.${type}`, bot.db.System.newsSubs[type].filter((x: string) => x != sub));
-            msg.channel.send(bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
+            Utils.send(msg.channel, bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
         } else {
             bot.db.save(`System.newsSubs.${type}`, (bot.db.get(`System.newsSubs.${type}`) || []).concat(sub));
-            msg.channel.send(bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
+            Utils.send(msg.channel, bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
         }
     }
 }

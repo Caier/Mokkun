@@ -23,7 +23,7 @@ export default class H {
         await msg.react('🔄');
         await msg.react('🔒');
         let save = false;
-        let coll = msg.createReactionCollector((react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name));
+        let coll = msg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name) });
         let r = (react: MessageReaction, user: User) => {
             save = true;
             r = () => react.users.remove(user);
@@ -44,8 +44,8 @@ export default class H {
                     let res = await method(true);
                     if(Array.isArray(res))
                         Utils.createPageSelector(msg.channel as any, res as any, {toEdit: msg, emojis: [null, `◀`, `▶`]});
-                    else {
-                        msg.edit(res as MessageEmbed);
+                    else if(typeof res != 'string') {
+                        msg.edit({embeds: [res as MessageEmbed]});
                         if(typeof res == 'string')
                             msg.suppressEmbeds(true);
                     }
@@ -60,11 +60,11 @@ export default class H {
         const color = "#006ffa";
         let sort = args[1].includes('sort:');
 
-        let nmsg = !ret && await msg.channel.send(bot.emb('Zbieranie postów...', color)); 
+        let nmsg = !ret && await Utils.send(msg.channel, bot.emb('Zbieranie postów...', color)); 
         let imgs = await fromGB(args[1], !sort);
 
         if(!imgs.length) {
-            nmsg?.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            nmsg?.edit({embeds: [bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`)]});
             return;
         }
         
@@ -85,7 +85,7 @@ export default class H {
             else if(ret)
                 return embed;
             else {
-                nmsg.edit(embed).then(nmsg => H.newPostReact(nmsg, r => H.gb(msg, args, bot, r)));
+                nmsg.edit({embeds: [embed]}).then(nmsg => H.newPostReact(nmsg, r => H.gb(msg, args, bot, r)));
                 x.tags == 'video' && await nmsg.suppressEmbeds(true);
             }
         }
@@ -97,11 +97,11 @@ export default class H {
         args = bot.newArgs(msg, {freeargs: 2});
         const color = "#7750ff";
 
-        let nmsg = !ret && await msg.channel.send(bot.emb('Zbieranie postów...', color)); 
+        let nmsg = !ret && await Utils.send(msg.channel, bot.emb('Zbieranie postów...', color)); 
         let imgs = await fromBooru(args[1], args[2]);
 
         if(!imgs.length) {
-            nmsg?.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
+            nmsg?.edit({embeds: [bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`)]});
             return;
         }
 
@@ -111,7 +111,7 @@ export default class H {
             embed?.setColor(color)?.setAuthor(args[1] == 'furry' ? 'furry.booru' : x.base.split('//')[1].split('.').slice(0, -1).join('.'), "https://cdn.discordapp.com/attachments/752238790323732494/833855293405265950/3gG6lQMl.png", x.base);
             if(ret)
                 return embed;
-            nmsg.edit(embed).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
+            nmsg.edit({embeds: [embed]}).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
         }
         else if(ret)
             return x.link;
@@ -125,14 +125,14 @@ export default class H {
     @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
     static async r34(msg: c.m, args: c.a, bot: c.b, ret = false) {
         args = bot.newArgs(msg, {freeargs: 1});
-        msg.content = `${msg.prefix}b r34 ${args[1]}`;
+        msg.content = `${bot.db.Data?.[msg?.guild?.id]?.prefix || '.'}b r34 ${args[1]}`;
         H.booru(msg, args, bot, ret);
     }
 
     @aliases('nhentai')
     @register('Doujiny na wyciągnięcie ręki!', '`$pnh {tagi | numerek | URL}` - wyszukuje specyficzny doujin\n`$pnh` - losowy doujin')
     static async nh(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
+        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 1);
 
         let doujin = (args[1]) 
         ? (/^[0-9]+$/.test(args[1])) 
@@ -143,13 +143,13 @@ export default class H {
         : await fromNH();
        
         if(!doujin) {
-            msg.channel.send(new SafeEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            Utils.send(msg.channel, new SafeEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
             return;
         }
 
         let embed = new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
 
-        msg.channel.send(embed).then(async nMsg => 
+        Utils.send(msg.channel, embed).then(async nMsg => 
             {
                 let curPage = 0;
                 let eventL: any;
@@ -180,17 +180,17 @@ export default class H {
                             curPage = (curPage > doujin.maxPage) ? doujin.maxPage : (curPage < 1) ? 1 : null;
                         
                         let newpageURL = `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${curPage}.${doujin.format}`;
-                        nMsg.edit(new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`));
+                        nMsg.edit({embeds: [new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`)]});
                     }
                     else if(emoji == '⏮')
                     {
                         react.users.remove(user.id);
-                        nMsg.edit(embed);
+                        nMsg.edit({embeds: [embed]});
                         curPage = 0;
                     }
                     else if(emoji == '❌')
                     {
-                        nMsg.edit(new SafeEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
+                        nMsg.edit({embeds: [new SafeEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`)]});
                         nMsg.reactions.removeAll();
                         bot.removeListener("messageReactionAdd", eventL);
                     }
@@ -202,7 +202,7 @@ export default class H {
     @aliases('pornhub')
     @register('Wyszukiwarka PornHuba', '`$pph {wyszukanie} | (opcjonalnie){ilość wyników max. 5}` - zobacz sam')
     static async ph(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
+        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 1);
 
         if(args[1])
         {
@@ -213,10 +213,10 @@ export default class H {
             {
                 let embed = new SafeEmbed().setColor("#FFA500");
                 embed.setImage(x.thumb).setTitle(x.title).setURL(x.link).setFooter(`Długość: ${x.duration}`).setAuthor(`PornHub${gay ? ' Gay' : ''}`, "https://i.imgur.com/VVEYgqA.jpg",`https://pornhub.com${gay ? '/gayporn' : ''}`);
-                msg.channel.send(embed);
+                Utils.send(msg.channel, embed);
             }
 
-            if(prn.length == 0) msg.channel.send(new SafeEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
+            if(prn.length == 0) Utils.send(msg.channel, new SafeEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
         }
     }
 }

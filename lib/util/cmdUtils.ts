@@ -1,10 +1,9 @@
 import { Mokkun } from "../mokkun";
-import { IExtMessage } from "./interfaces/DiscordExtended";
-import { Collection, PermissionString } from "discord.js";
+import { Collection, Message, PermissionString } from "discord.js";
 import { ICommand } from "./interfaces/ICommand";
 
 export namespace CmdParams {
-    export type m = IExtMessage;
+    export type m = Message;
     export type a = any[];
     export type b = Mokkun;
 }

@@ -1,4 +1,4 @@
-import { MessageEmbed, StringResolvable, Util, MessageEmbedOptions, EmbedFieldData, EmbedField } from 'discord.js';
+import { MessageEmbed, MessageEmbedOptions, EmbedFieldData, EmbedField, EmbedAuthorData, EmbedFooterData } from 'discord.js';
 
 export class SafeEmbed extends MessageEmbed {
     overFields: EmbedField[] = [];
@@ -37,27 +37,40 @@ export class SafeEmbed extends MessageEmbed {
         return this.populateEmbeds(max, embs, ++level);
     }
 
-    setAuthor(name: StringResolvable, iconURL?: string, url?: string) {
-        name = Util.resolveString(name).slice(0, SafeEmbed.max.author);
-        return super.setAuthor(name, iconURL, url);
+    setAuthor(options: EmbedAuthorData | null): this;
+    setAuthor(name: string, iconURL?: string, url?: string): this;
+    setAuthor(nameOrOpts: string | EmbedAuthorData, iconURL?: string, url?: string) {
+        if(typeof nameOrOpts == 'string') {
+            nameOrOpts = nameOrOpts.slice(0, SafeEmbed.max.author);
+            return super.setAuthor({ name: nameOrOpts, iconURL, url });
+        }
+
+        nameOrOpts.name = nameOrOpts.name.slice(0, SafeEmbed.max.author);
+        return super.setAuthor(nameOrOpts);
     }
 
-    setDescription(description: StringResolvable) {
-        description = Util.resolveString(description).slice(0, SafeEmbed.max.description);
+    setDescription(description: string) {
+        description = description.slice(0, SafeEmbed.max.description);
         return super.setDescription(description);
     }
 
-    setTitle(title: StringResolvable) {
-        title = Util.resolveString(title).slice(0, SafeEmbed.max.title);
+    setTitle(title: string) {
+        title = title.slice(0, SafeEmbed.max.title);
         return super.setTitle(title);
     }
 
-    setFooter(text: StringResolvable, iconURL?: string) {
-        text = Util.resolveString(text).slice(0, SafeEmbed.max.footerText);
-        return super.setFooter(text, iconURL);
+    setFooter(options: EmbedFooterData | null): this;
+    setFooter(text: string, iconURL?: string): this;
+    setFooter(textOrOpts: string | EmbedFooterData, iconURL?: string) {
+        if(typeof textOrOpts == 'string') {
+            textOrOpts = textOrOpts.slice(0, SafeEmbed.max.footerText);
+            return super.setFooter({ text: textOrOpts, iconURL });
+        }
+        textOrOpts.text = textOrOpts.text.slice(0, SafeEmbed.max.footerText);
+        return super.setFooter(textOrOpts);
     }
 
-    addField(name: StringResolvable, value: StringResolvable, inline?: boolean) {
+    addField(name: string, value: string, inline?: boolean) {
         super.addField(name, value, inline);
         this.shortenFields();
         return this;
@@ -75,9 +88,9 @@ export class SafeEmbed extends MessageEmbed {
         return this;
     }
 
-    static normalizeField(name: StringResolvable, value: StringResolvable, inline?: boolean) {
-        name = Util.resolveString(name).slice(0, SafeEmbed.max.fieldName);
-        value = Util.resolveString(value).slice(0, SafeEmbed.max.fieldValue);
+    static normalizeField(name: string, value: string, inline?: boolean) {
+        name = name.slice(0, SafeEmbed.max.fieldName);
+        value = value.slice(0, SafeEmbed.max.fieldValue);
         return super.normalizeField(name, value, inline);
     }
 }

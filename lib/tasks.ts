@@ -12,7 +12,7 @@ new Task(3000, async (self) => { //reminders
         if(+r.boomTime - Date.now() <= 0) {
             let emb = new self.bot.RichEmbed().setColor('#00ffff').setAuthor('Przypomnienie').setDescription(r.content).addField('Od', `<@${r.author}>`);
             try {
-                let msg = (await ((await self.bot.channels.fetch(r.createdIn)) as TextChannel)?.send(emb));
+                let msg = (await ((await self.bot.channels.fetch(r.createdIn)) as any as TextChannel)?.send({embeds: [emb]}));
                 if(msg)
                     rems = rems.filter(re => re.id != r.id);
             } catch(e) {
@@ -33,9 +33,9 @@ new Task(60_000, async (self) => { //ztm sytuacja komunikacyjna
     for (let x of news.komunikaty) {
         let embed = new self.bot.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
         for(let c of newsSubs.users)
-            self.bot.users.resolve(c).send(embed);
+            (self.bot.users.resolve(c) as any).send(embed);
         for(let c of newsSubs.channels)
-            (self.bot.channels.resolve(c) as TextChannel).send(embed)
+            (self.bot.channels.resolve(c) as any).send(embed)
     }
     fs.writeFileSync(files.prevRes, JSON.stringify(news));
 })
