@@ -17,18 +17,18 @@ const decls = Object.keys(imports).reduce((p, c) => p + `var ${c} = imports["${c
 export default class {
     @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
     static eval(msg: c.m, args: c.a, bot: c.b) {
-        const print = (cont: any, opts?: any) => msg.channel.send(cont, opts);
-        let code = msg.content.slice(msg.prefix.length + this.name.length);
+        const print = (cont: any, opts?: any) => Utils.send(msg.channel, cont, opts);
+        let code = msg.content.slice((bot.db.Data?.[msg?.guild?.id]?.prefix || '.').length + this.name.length);
         try {
             eval(decls + '\n\n' + code);
         } catch(err) {
-            msg.channel.send('Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + (err as Error).stack.split('\n').slice(0, 5).join('\n'), {split: true, code: true});
+            Utils.send(msg.channel, 'Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + (err as Error).stack.split('\n').slice(0, 5).join('\n'), {split: true, code: 'js'});
         }
     }
 
     @register('zmienia status bota', '`$pstatus {typ aktywności} {status}` - zmienia status (presence) bota')
     static status(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, "|", 2);
+        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 2);
         let acceptable = ["PLAYING", "STREAMING", "LISTENING", "WATCHING"];
 
         if(args[1] && args[2])
@@ -38,15 +38,15 @@ export default class {
             {
                 bot.db.save(`System.presence`, {name: args[2], type: args[1]});
                 bot.user.setActivity(args[2], {type: args[1]})
-                .then(() => msg.channel.send(bot.embgen(bot.sysColor, "Ustawiono status")));
+                Utils.send(msg.channel, bot.embgen(bot.sysColor, "Ustawiono status"));
             }
-            else msg.channel.send(bot.embgen(bot.sysColor, `Dostępne typy statusu:\n${acceptable.join("\n")}`));
+            else Utils.send(msg.channel, bot.embgen(bot.sysColor, `Dostępne typy statusu:\n${acceptable.join("\n")}`));
         }
     }
 
     @register('aktualizuje bota', '`$pupdate`')
     static async update(msg: c.m, args: c.a, bot: c.b) {
-        msg.channel.send(bot.emb('**Aktualizowanie... (Obserwuj status)**'));
+        Utils.send(msg.channel, bot.emb('**Aktualizowanie... (Obserwuj status)**'));
         await bot.user.setActivity("Aktualizowanie...", {type: 'PLAYING'});
         cp.exec('../updMokk.sh', (err, stdout) => {
             if (err)

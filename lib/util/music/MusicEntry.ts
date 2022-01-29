@@ -1,8 +1,8 @@
-import { StreamDispatcher } from "discord.js";
 import { VideoEntry } from "@caier/yts/lib/interfaces";
 import { TrackEntry } from "@caier/sc/lib/interfaces";
 import { v4 as uuid } from 'uuid';
 import { IMusicHistory } from "../interfaces/IMusicHistory";
+import { AudioPlayer, AudioResource } from "@discordjs/voice";
 
 export class MusicEntry {
     id: string = uuid();
@@ -10,7 +10,7 @@ export class MusicEntry {
     addedBy: string;
     type: "yt"|"sc";
     videoInfo: VideoEntry | TrackEntry;
-    dispatcher?: StreamDispatcher;
+    audioRes?: AudioResource;
 
     constructor(opts: {vid: VideoEntry | TrackEntry, by: string, type: "yt"|"sc", queue?: any}) {
         this.addedBy = opts.by;
@@ -21,7 +21,7 @@ export class MusicEntry {
     }
     
     get strTime() {
-        return this.dispatcher?.streamTime ?? 0;
+        return this.audioRes?.playbackDuration ?? 0;
     }
 
     get milisLeft() {

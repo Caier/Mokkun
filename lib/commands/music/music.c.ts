@@ -1,7 +1,7 @@
 import { group, CmdParams as c, notdm, register, extend, aliases, deprecated, subcommandGroup } from "../../util/cmdUtils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
 import { MusicQueue } from "../../util/music/MusicQueue";
-import { Message, TextChannel } from "discord.js";
+import { Message, TextChannel, VoiceChannel } from "discord.js";
 import yts from '@caier/yts';
 import sc from '@caier/sc';
 import { MusicEntry } from "../../util/music/MusicEntry";
@@ -12,13 +12,14 @@ import Utils from "../../util/utils";
 import { Playlist } from "../../util/music/Playlist";
 import Playspace from "../../util/music/Playspace";
 import { ICommand } from "../../util/interfaces/ICommand";
+import { AudioPlayerStatus, entersState, joinVoiceChannel, VoiceConnectionStatus } from "@discordjs/voice";
 
 @notdm
 @extend((m: c.m, [], b: c.b, c: ICommand) => {
     let queue = b.music.getQueue(m.guild).setOutChan(m.channel as TextChannel);
     let unprohibited = ['queue', 'now', 'his'].map(c => b.commands.get(c));
     if(!unprohibited.includes(c) && !queue.playspaceManager.current.isPublic && !queue.playspaceManager.current.moderators.includes(m.member.id)) {
-        m.channel.send(H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
+        Utils.send(m.channel, H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
         throw new SilentError();
     }
     return [m, b.newArgs(m, {freeargs: 1}), b, queue];
@@ -29,25 +30,29 @@ export default class H {
     static scColor = '#ff8800';
     static emb = (desc?: string, sc?: boolean) => new SafeEmbed().setColor(sc ? H.scColor : H.embColor as any).setAuthor(desc || 'null');
     static gArgs = (msg: c.m, bot: c.b) => bot.newArgs(msg, {freeargs: 1});
-    static whatToPlay = (msg: c.m, m?: string) => msg.channel.send(H.emb(m || "Co mam odtworzyć?"));
+    static whatToPlay = (msg: c.m, m?: string) => Utils.send(msg.channel, H.emb(m || "Co mam odtworzyć?"));
     static notFound = (msg: c.m) => H.whatToPlay(msg, "Nie znaleziono");
     static whatToSearch = (msg: c.m) => H.whatToPlay(msg, "Co chcesz wyszukać?");
 
     static async assertVC(msg: c.m, queue?: MusicQueue) {
         if(!msg?.member?.voice?.channel) {
-            msg.channel.send(H.emb('Aby korzystać z funkcji muzycznych, wejdź na kanał głosowy'));
+            Utils.send(msg.channel, H.emb('Aby korzystać z funkcji muzycznych, wejdź na kanał głosowy'));
             throw new SilentError("Member not in VC");
         }
         if(queue)
-            queue.setVC(await msg.member.voice.channel.join());
+            queue.setVC(await entersState(joinVoiceChannel({
+                channelId: msg.member.voice.channel.id,
+                guildId: msg.member.guild.id,
+                adapterCreator: msg.member.guild.voiceAdapterCreator
+            }), VoiceConnectionStatus.Ready, 5e3), msg.member.voice.channel as VoiceChannel);
     }
 
     @register('dodaje do kolejki (z YT) lub wznawia odtwarzanie kolejki', '`$pplay (co odtworzyć)')
     static async play(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue, top = false, fromSC = false) {
         await H.assertVC(msg, queue);
-        if(!args[1] && queue?.playing?.dispatcher?.paused) {
+        if(!args[1] && queue?.audioPlayer.state.status == AudioPlayerStatus.Paused) {
             queue.resume();
-            msg.channel.send(H.emb('Wznowiono odtwarzanie ⏯'));
+            Utils.send(msg.channel, H.emb('Wznowiono odtwarzanie ⏯'));
             return;
         }
         else if(!args[1] && queue.queue.length == 0) {
@@ -110,8 +115,8 @@ export default class H {
         entries.forEach((vid: TrackEntry | VideoEntry, i: number) => {
             embed.addField(`**Kanał: ${vid.author.name}**`, `**\`${i+1}.\` ${vid.name}**\nDługość: ${vid.duration}`);
         });
-        msg.channel.send(embed).then(async nmsg => {
-            let imsg = await msg.channel.send(H.emb("Napisz numer utworu, który chcesz puścić, lub odpisz `stop` aby anulować wyszukanie", fromSC));
+        Utils.send(msg.channel, embed).then(async nmsg => {
+            let imsg = await Utils.send(msg.channel, H.emb("Napisz numer utworu, który chcesz puścić, lub odpisz `stop` aby anulować wyszukanie", fromSC));
             let eventL: any;
             setTimeout(() => bot.removeListener("message", eventL), 120000);
 
@@ -123,10 +128,10 @@ export default class H {
                     rmsg.content = "stop";
                 }
                 if(rmsg.content == 'stop') {
-                    msg.delete({timeout: 150});
-                    nmsg.delete({timeout: 150});
-                    rmsg.delete({timeout: 150});
-                    imsg.delete({timeout: 150});
+                    msg.delete();
+                    nmsg.delete();
+                    rmsg.delete();
+                    imsg.delete();
                     bot.removeListener("message", eventL);
                 }
             });
@@ -155,14 +160,14 @@ export default class H {
     static async skip(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         await H.assertVC(msg);
         if(!queue.playing) {
-            msg.channel.send(H.emb('Nie ma czego skipować!'));
+            Utils.send(msg.channel, H.emb('Nie ma czego skipować!'));
             return;
         }
         if(queue.loop)
             queue.loop = 0;
         if(args[1] && !isNaN(+args[1]) && +args[1] > 0)
             queue.queue.splice(0, (+args[1] >= queue.queue.length) ? queue.queue.length - 1 : +args[1]);
-        msg.channel.send(H.emb('Skipped ⏩'));
+        Utils.send(msg.channel, H.emb('Skipped ⏩'));
         queue.playNext();
     }
 
@@ -171,9 +176,9 @@ export default class H {
         await H.assertVC(msg);
         if(queue.playing) {
             queue.pause();
-            msg.channel.send(H.emb('Zapauzowano ⏸'));
+            Utils.send(msg.channel, H.emb('Zapauzowano ⏸'));
         } else
-            msg.channel.send(H.emb('Nie ma czego pauzować!'));
+            Utils.send(msg.channel, H.emb('Nie ma czego pauzować!'));
     }
 
     @aliases('rem')
@@ -184,7 +189,7 @@ export default class H {
         args = bot.newArgs(msg);
         args[1] = args.slice(1);
         let wrong = queue.remove(args[1]);
-        wrong.length && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
+        wrong.length && Utils.send(msg.channel, H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
     }
 
     @register('wyświetla kolejkę', '`$pqueue`')
@@ -192,7 +197,7 @@ export default class H {
         if(queue.queue.length > 0 || queue.playing) {
             let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor("Kolejka").addField("Przestrzeń odtwarzania", queue.playspaceManager.current.name);
             if(queue.playing)
-                emb.addField("Teraz odtwarzane:", `${queue.playing.dispatcher.paused ? '⏸' : '▶️'} [**${queue.playing.videoInfo.name}**](${queue.playing.videoInfo.url})` + '\n' + 'Pozostało: ' + queue.playing.timeLeft);
+                emb.addField("Teraz odtwarzane:", `${queue.audioPlayer.state.status == AudioPlayerStatus.Paused ? '⏸' : '▶️'} [**${queue.playing.videoInfo.name}**](${queue.playing.videoInfo.url})` + '\n' + 'Pozostało: ' + queue.playing.timeLeft);
             if(queue.queue.length > 0) {
                 emb.addField('\u200b', '**Następnie:**');
                 queue.queue.forEach((x, i) =>
@@ -201,11 +206,11 @@ export default class H {
                 if(embs.length > 0)
                     Utils.createPageSelector(msg.channel as TextChannel, embs, {triggers: [msg.author.id]});
                 else
-                    msg.channel.send(emb);
-            } else msg.channel.send(emb);
+                    Utils.send(msg.channel, emb);
+            } else Utils.send(msg.channel, emb);
         }
         else
-            msg.channel.send(H.emb('Kolejka jest pusta'));
+            Utils.send(msg.channel, H.emb('Kolejka jest pusta'));
     }
 
     @register('wyświetla bieżący utwór', '`$pnow`')
@@ -213,12 +218,12 @@ export default class H {
         if(queue.playing) {
             let emb = (<SafeEmbed> queue.announce('nextSong', queue.playing, true)).setAuthor('Teraz odtwarzane')
             .spliceFields(-1, 0, [{name: 'Pozostało', value: queue.playing.timeLeft + (queue.loop ? ` + ${queue.loop} powtórzeń` : ''), inline: true},
-            {name: 'Stan', value: queue.playing.dispatcher.paused ? '⏸' : '▶️', inline: true},
+            {name: 'Stan', value: queue.audioPlayer.state.status == AudioPlayerStatus.Paused ? '⏸' : '▶️', inline: true},
             {name: 'Przestrzeń', value: queue.playspaceManager.current.name, inline: true}]);
-            msg.channel.send(emb);
+            Utils.send(msg.channel, emb);
         }
         else
-            msg.channel.send(H.emb('Nic nie jest odtwarzane'));
+            Utils.send(msg.channel, H.emb('Nic nie jest odtwarzane'));
     }
 
     @aliases('dq')
@@ -227,20 +232,20 @@ export default class H {
         let conf = await Utils.confirmBox(msg.channel as any, "Ta komenda wyczyści wszyskie właściwości kolejki, jej historię, ustawienia, playlisty itd.\nJeśli chcesz jedynie zatrzymać odtwarzanie, użyj komendy `pause` lub `stop`\n\nCzy na pewno chcesz zniszczyć kolejkę tego serwera?", msg.author);
         if(conf) {
             bot.music.destroyQueue(msg.guild);
-            msg.channel.send(H.emb('Zniszczono kolejkę'));
+            Utils.send(msg.channel, H.emb('Zniszczono kolejkę'));
         }
     }
 
     @register('zatrzymuje odtwarzanie po skończeniu obecnego utworu i rozłącza bota', '$pstop')
     static stop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        msg.channel.send(H.emb(queue.softStop() ? 'Zatrzymanie kolejki nastąpi po skończeniu utworu ⏹' : 'Zatrzymano kolejkę ⏹'));
+        Utils.send(msg.channel, H.emb(queue.softStop() ? 'Zatrzymanie kolejki nastąpi po skończeniu utworu ⏹' : 'Zatrzymano kolejkę ⏹'));
     }
 
     @aliases('fstop')
     @register('zatrzymuje odtwarzanie i rozłącza bota', '$c')
     static forcestop(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         queue.stop();
-        msg.channel.send(H.emb('Zatrzymano kolejkę ⏹'));
+        Utils.send(msg.channel, H.emb('Zatrzymano kolejkę ⏹'));
     }
 
     @aliases('his')
@@ -257,7 +262,7 @@ export default class H {
             if(embs.length > 0)
                 Utils.createPageSelector(msg.channel as TextChannel, embs, {triggers: [msg.author.id]});
             else 
-                msg.channel.send(emb);
+                Utils.send(msg.channel, emb);
         }
     }
 
@@ -265,14 +270,14 @@ export default class H {
     @register('czyści historię odtwarzania', '`$pclearHistory`')
     static clearHistory(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         queue.history = [];
-        msg.channel.send(H.emb('Wyczyszczono historię odtwarzania'));
+        Utils.send(msg.channel, H.emb('Wyczyszczono historię odtwarzania'));
     }
 
     @deprecated
     @aliases('aplay')
     @register('włącza/wyłącza autoodtwarzanie następnych utworów', '`$pautoplay`')
     static async autoplay(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
-        msg.channel.send(H.emb('Autoodtwarzanie nie jest obecnie wspierane'/* queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie' */));
+        Utils.send(msg.channel, H.emb('Autoodtwarzanie nie jest obecnie wspierane'/* queue.toggleAutoplay() ? 'Włączono autoodtwarzanie' : 'Wyłączono autoodtwarzanie' */));
     }
 
     @register('losowo miesza utwory w kolejce', '`$pshuffle`')
@@ -280,7 +285,7 @@ export default class H {
         let q = Utils.arrayShuffle(queue.queue);
         queue.queue = q;
         queue.playspaceManager.current.queue = q;
-        msg.channel.send(H.emb('Pomieszano utwory w kolejce'));
+        Utils.send(msg.channel, H.emb('Pomieszano utwory w kolejce'));
     }
 
     @register('powtarza odtwarzanie obecnego utworu', '`$c (ilość powtórzeń, w przypadku braku tego argumentu utwór powtarzany będzie w nieskończoność)`')
@@ -289,9 +294,9 @@ export default class H {
             throw new LoggedError(msg.channel, 'Nie ma czego powtarzać', H.embColor as any);
         if(!args[1] || !isNaN(+args[1]) && +args[1] >= 0) {
             queue.loop = +args[1] ?? Infinity;
-            msg.channel.send(H.emb(`Obecny utwór zostanie powtórzony ${+args[1] ?? 'nieskończoność'} razy.`));
+            Utils.send(msg.channel, H.emb(`Obecny utwór zostanie powtórzony ${+args[1] ?? 'nieskończoność'} razy.`));
         }
-        else msg.channel.send(H.emb('Niepoprawna ilość powtórzeń'));
+        else Utils.send(msg.channel, H.emb('Niepoprawna ilość powtórzeń'));
     }
 }
 
@@ -303,7 +308,7 @@ class repeat {
     static async mod(msg: c.m, args: c.a, bot: c.b) {
         let q = bot.music.getQueue(msg.guild).setOutChan(msg.channel as TextChannel);
         if(!q.playspaceManager.current.isPublic && !q.playspaceManager.current.moderators.includes(msg.member.id)) {
-            msg.channel.send(H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
+            Utils.send(msg.channel, H.emb("Nie jesteś moderatorem tej przestrzeni odtwarzania").setDescription("Aby zmienić przestrzeń na domyślną użyj komendy `playspace switch`"));
             throw new SilentError();
         }
         await H.assertVC(msg);
@@ -342,7 +347,7 @@ class repeat {
                 entries.push(MusicEntry.fromJSON(saved, msg.author.username));
             }
             queue.addEntry(entries, false);
-            wrong.length > 0 && msg.channel.send(H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
+            wrong.length > 0 && Utils.send(msg.channel, H.emb('Podano błędną pozycję: ' + wrong.join(', ')));
         }
     }
 }
@@ -361,12 +366,12 @@ class playspace {
             throw new LoggedError(msg.channel, "Ta przestrzeń odtwarzania już istnieje", H.embColor as any);
 
         let isPublic = false;
-        let mods = [...new Set([...msg.mentions.members.keyArray(), ...msg.mentions.roles.array().map(r => r.members.keyArray()).flat()])];
+        let mods = [...new Set([...[...msg.mentions.members.keys()], ...[...msg.mentions.roles.values()].map(r => [...r.members.values()].map(m => m.id)).flat()])];
         if(!mods.length)
             isPublic = true;
         queue.playspaceManager.spaces.push(new Playspace({name: args[1], author: msg.member.id, moderators: mods, isPublic}));
         queue.savePlayspaces();
-        msg.channel.send(H.emb('Utworzono przestrzeń odtwarzania: ' + args[1]));
+        Utils.send(msg.channel, H.emb('Utworzono przestrzeń odtwarzania: ' + args[1]));
     }
 
     @aliases('r', 'rem')
@@ -382,7 +387,7 @@ class playspace {
         if(ps.isDefault)
             throw new LoggedError(msg.channel, "Nie możesz usunąć domyślnej przestrzeni odtwarzania", H.embColor as any);
 
-        msg.channel.send(H.emb('Usunięto przestrzeń odtwarzania: ' + args[1]));
+        Utils.send(msg.channel, H.emb('Usunięto przestrzeń odtwarzania: ' + args[1]));
         if(queue.playspaceManager.current == ps)
             queue.switchPlayspace('default');
         queue.playspaceManager.spaces = queue.playspaceManager.spaces.filter(s => s.name != ps.name);
@@ -401,29 +406,29 @@ class playspace {
             throw new LoggedError(msg.channel, "Nie jesteś moderatorem tej przestrzeni odtwarzania", H.embColor as any);
 
         queue.switchPlayspace(ps);
-        msg.channel.send(H.emb('Zmieniono przestrzeń odtwarzania na: ' + ps.name));
+        Utils.send(msg.channel, H.emb('Zmieniono przestrzeń odtwarzania na: ' + ps.name));
     }
 
     @register('wyświetla przestrzenie odtwarzania tego serwera', '`$c`')
     static list(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         let emb = H.emb('Lista przestrzeni odtwarzania').setDescription(queue.playspaceManager.spaces.map(s => s.name).join(', '));
-        msg.channel.send(emb);
+        Utils.send(msg.channel, emb);
     }
 
     @register('wyświetla obecną przestrzen odtwarzania', '`$c`')
     static _(msg: c.m, args: c.a, bot: c.b, queue: MusicQueue) {
         let ps = queue.playspaceManager.current;
         if(ps.isDefault) {
-            msg.channel.send(H.emb('Ta przestrzeń odtwarzania jest domyślna'));
+            Utils.send(msg.channel, H.emb('Ta przestrzeń odtwarzania jest domyślna'));
             return;
         }
         let emb = new bot.RichEmbed().setColor(H.embColor as any).setAuthor('Obecna przestrzeń odtwarzania').addField('Nazwa', ps.name)
             .addField('Twórca', msg.guild.members.resolve(ps.author)?.user.username)
             .addField('Publiczna?', ps.isPublic ? 'tak' : 'nie');
         !ps.isPublic && emb.addField('Moderatorzy', ps.moderators.map(m => msg.guild.members.resolve(m).user.username).join(', '));
-        emb.addField('Długość kolejki', ps.queue.length).addField('Długość historii', ps.history.length);
+        emb.addField('Długość kolejki', ''+ps.queue.length).addField('Długość historii', ''+ps.history.length);
 
-        msg.channel.send(emb);
+        Utils.send(msg.channel, emb);
     }
 }
 

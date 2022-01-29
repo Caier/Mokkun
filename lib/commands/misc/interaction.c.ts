@@ -18,7 +18,7 @@ export default class H {
             return;
         }
         args = bot.newArgs(msg, {splitter: '|', freeargs: 1});
-        msg.channel.send(H.choosePhrase(`**${args[Utils.rand(1, args.length - 1)]}**`, H.selPhrases as any));
+        Utils.send(msg.channel, H.choosePhrase(`**${args[Utils.rand(1, args.length - 1)]}**`, H.selPhrases as any));
     }
 
     @register('losuje numer spośród podanego zakresu :cowboy:', '`$proll (minimum) {maksimum}`')
@@ -28,6 +28,6 @@ export default class H {
             bot.sendHelp(msg, 'roll');
             return;
         }
-        msg.channel.send(`**${msg.author.username}** losuje numer z zakresu **${fi ? args[1] : 1}** - **${fi ? args[2] : args[1]}**...\nWylosowano: **${Utils.rand(fi ? +args[1] : 1, fi ? +args[2] : +args[1])}**`);
+        Utils.send(msg.channel, `**${msg.author.username}** losuje numer z zakresu **${fi ? args[1] : 1}** - **${fi ? args[2] : args[1]}**...\nWylosowano: **${Utils.rand(fi ? +args[1] : 1, fi ? +args[2] : +args[1])}**`);
     }
 }

@@ -1,5 +1,6 @@
 import { MusicEntry } from "./MusicEntry";
-import { VoiceConnection, TextChannel, BaseClient, Guild } from "discord.js";
+import { TextChannel, BaseClient, Guild, VoiceChannel } from "discord.js";
+import { AudioPlayerStatus, createAudioPlayer, createAudioResource, StreamType, VoiceConnection, VoiceConnectionReadyState, VoiceConnectionStatus } from "@discordjs/voice";
 import { MokkunMusic } from "./MokkunMusic";
 import { TrackEntry } from "@caier/sc/lib/interfaces";
 import { Readable } from "stream";
@@ -7,7 +8,6 @@ import { LoggedError } from "../errors/errors";
 import sc from '@caier/sc';
 import { SafeEmbed } from "../embed/SafeEmbed";
 import { IMusicHistory } from "../interfaces/IMusicHistory";
-import { IExtGuild } from "../interfaces/DiscordExtended";
 import { getOpusStream } from "./OpusStreamFinder";
 import PlayspaceManager from "./PlayspaceManager";
 import Playspace from "./Playspace";
@@ -16,37 +16,39 @@ import Utils from "../utils";
 export class MusicQueue extends BaseClient {
     private idleTime = 0;
     private tryingToPlay = false;
-    private ytCookie = '';
     private readonly watchInterval = 1000;
+    private timer: NodeJS.Timer;
     private readonly maxIdle = 600000;
     private readonly master: MokkunMusic;
     private toFinish = false;   //should the queue be stopped after current song ends
+    audioPlayer = createAudioPlayer();
     playspaceManager: PlayspaceManager;
     queue: MusicEntry[] = [];
     history: IMusicHistory[];
     VoiceCon: VoiceConnection;
+    VoiceChan: VoiceChannel;
     playing: MusicEntry | null = null;
     outChannel?: TextChannel;
     autoplay = false;
     loop = 0; //how many times should the current song be looped
 
-    constructor(master: MokkunMusic, guild: IExtGuild) { 
+    constructor(master: MokkunMusic, guildId: string) { 
         super();
         this.master = master;
-        this.playspaceManager = guild.data?.music?.playspaces ? PlayspaceManager.fromJSON(guild.data.music.playspaces) : new PlayspaceManager();
+        this.playspaceManager = master.bot.db.Data[guildId]?.music?.playspaces ? PlayspaceManager.fromJSON(master.bot.db.Data[guildId].music.playspaces) : new PlayspaceManager();
         this.history = this.playspaceManager.current.history;
         this.queue = this.playspaceManager.current.queue;
-        this.autoplay = guild.data?.music?.autoplay || false;
+        this.autoplay = master.bot.db.Data[guildId]?.music?.autoplay || false;
         this.watch();
     }
 
-    private nonBotListeners = () => this.VoiceCon?.channel.members.array().filter(v => !v.user.bot).length;
+    private nonBotListeners = () => [...this.VoiceChan.members.values()].filter(v => !v.user.bot).length;
 
     private watch() {
-        this.setInterval(() => {
+        this.timer = setInterval(() => {
             if(this.idleTime >= this.maxIdle)
                 this.stop();
-            else if(this.status == 'idle' && this.queue.length > 0)
+            else if(this.status == 'idle' && (this.queue.length > 0 || this.toFinish))
                 this.playNext();
             else if(['idle', 'disconnected'].includes(this.status) || this.nonBotListeners() == 0)
                 this.idleTime += this.watchInterval;
@@ -55,9 +57,11 @@ export class MusicQueue extends BaseClient {
         }, this.watchInterval);
     }
 
-    setVC(VoiceC: VoiceConnection) {
+    setVC(VoiceC: VoiceConnection, VoiceChan: VoiceChannel) {
         this.VoiceCon = VoiceC;
-        this.VoiceCon?.on('disconnect', () => this.finish());
+        this.VoiceChan = VoiceChan;
+        this.VoiceCon.subscribe(this.audioPlayer);
+        this.VoiceCon?.on(VoiceConnectionStatus.Disconnected, () => this.finish());
     }
 
     addEntry(entry: MusicEntry | MusicEntry[], top: boolean) {
@@ -90,45 +94,8 @@ export class MusicQueue extends BaseClient {
             this.announce('nextSong');
             await this.play(this.playing);
         }
-        else if(this.autoplay && this.playing?.type == 'yt') {
-            this.playing.dispatcher?.destroy();
-            await this.addAutoNext();
-        }
         else
             this.finish();
-    }
-
-    private async addAutoNext() {
-        // let resp = await ax.get(this.playing.videoInfo.url + '&pbj=1', {headers: {cookie: this.ytCookie, 'x-youtube-client-name': 1, 'x-youtube-client-version': '2.20200513.00.00',
-        // 'x-spf-previous': this.playing.videoInfo.url, 'x-spf-referer': this.playing.videoInfo.url, referer: this.playing.videoInfo.url}, responseType: 'json'});
-        // let posCook = resp.headers['set-cookie'];
-        // if(!this.ytCookie)
-        //     this.ytCookie = posCook.reduce((prev: any, cur: any) => prev + cur.split(' ')[0] + ' ', '');
-        // console.log(this.ytCookie);
-        // let url = resp.data[3].response.contents.twoColumnWatchNextResults.secondaryResults.secondaryResults
-        //           .results[0].compactAutoplayRenderer.contents[0].compactVideoRenderer.navigationEndpoint
-        //           .commandMetadata.webCommandMetadata.url;
-        // this.shiftToHistory();
-        // this.addEntry(new MusicEntry({vid: (await yts('https://www.youtube.com' + url)).videos[0],
-        //               member: {user: {username: 'Autoodtwarzanie'}} as any, queue: this, type: 'yt'}), false);
-
-        // let vid = await ytdl.getInfo(this.playing.videoInfo.url);
-        // let choice: any = vid.related_videos[Utils.rand(0, vid.related_videos.length - 1)];
-        // let entry: VideoEntry = {
-        //     name: choice.title,
-        //     thumbnail: choice.video_thumbnail,
-        //     duration: Utils.milisToReadableTime(choice.length_seconds * 1000),
-        //     milis: choice.length_seconds * 1000,
-        //     views: choice.view_count,
-        //     description: null,
-        //     url: 'https://www.youtube.com/watch?v=' + choice.id,
-        //     author: {
-        //         name: choice.author,
-        //         url: null
-        //     }
-        // }
-        // this.shiftToHistory();
-        // this.addEntry(new MusicEntry({vid: entry, member: this.dummyAutoplayUser as any, queue: this, type: 'yt'}), false);
     }
 
     private shiftToHistory() {
@@ -141,7 +108,7 @@ export class MusicQueue extends BaseClient {
 
     private async play(entry: MusicEntry, retries = 0) {
         try {
-            if(this.VoiceCon?.status != 0) 
+            if(this.VoiceCon?.state.status != VoiceConnectionStatus.Ready) 
                 throw Error('VoiceConnection is not ready');
             this.tryingToPlay = true;
             let str;
@@ -149,10 +116,10 @@ export class MusicQueue extends BaseClient {
                 str = await getOpusStream(entry.videoInfo.url, {quality: 'highestaudio', highWaterMark: 1<<25});
             else if(entry.type == 'sc')
                 str = await sc.download((entry.videoInfo as TrackEntry).id, true);
-            (<Readable> str).on('end', () => setTimeout(() => this.playNext(), 2000));
-            (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str as Readable, {type: 'opus', highWaterMark: 12});
-            this.playing?.dispatcher?.setFEC(true);
-            if(!this.playing?.dispatcher) {
+            this.playing.audioRes = createAudioResource(str as Readable, {inputType: StreamType.Opus});
+            this.audioPlayer.play(this.playing.audioRes);
+            this.playing?.audioRes?.encoder?.setFEC(true);
+            if(!this.playing?.audioRes) {
                 (<Readable> str)?.destroy();
                 if(retries > 2) {
                     this.tryingToPlay = false;
@@ -168,7 +135,7 @@ export class MusicQueue extends BaseClient {
     }
 
     private finish() {
-        this.playing?.dispatcher?.destroy();
+        this.audioPlayer.stop();
         this.shiftToHistory();
     }
 
@@ -204,8 +171,8 @@ export class MusicQueue extends BaseClient {
             .setThumbnail(entry.videoInfo.thumbnail)
             .addField("Kanał", entry.videoInfo.author.name, true)
             .addField("Długość", entry.videoInfo.duration, true)
-            .addField("Za", za || this.timeLeft, true)
-            .addField("Pozycja", pos);
+            .addField("Za", ''+ za || this.timeLeft, true)
+            .addField("Pozycja", ''+pos);
         }
         else if(what == 'removed') {
             let entry : MusicEntry = arguments[1];
@@ -218,7 +185,7 @@ export class MusicQueue extends BaseClient {
             embed.setAuthor(`Dodano ${(entry as any).length} utworów do kolejki`);
         if(ret)
             return embed;
-        this.outChannel.send(embed);
+        this.outChannel.send({embeds: [embed]});
     }
     
     get milisLeft() {
@@ -233,11 +200,11 @@ export class MusicQueue extends BaseClient {
     }
 
     pause() {
-        this.playing?.dispatcher?.pause();
+        this.audioPlayer.pause();
     }
 
     resume() {
-        this.playing?.dispatcher?.resume();
+        this.audioPlayer.unpause();
     }
 
     remove(posArr: string[]) {
@@ -258,9 +225,9 @@ export class MusicQueue extends BaseClient {
         for(let entry of toRemove)
             removed.push(this.queue.splice(this.queue.findIndex(v => v.id == entry.id), 1)[0]);
         if(this.queue.length == 0 && removed.length > 0)
-            this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor('Wyczyszczono kolejkę'));
+            this.outChannel?.send({embeds: [new SafeEmbed().setColor([112, 0, 55]).setAuthor('Wyczyszczono kolejkę')]});
         else if(removed.length > 1)
-            this.outChannel?.send(new SafeEmbed().setColor([112, 0, 55]).setAuthor(`Usunięto ${removed.length} utworów`).addField('Następnie', this.queue[0].videoInfo.name));
+            this.outChannel?.send({embeds: [new SafeEmbed().setColor([112, 0, 55]).setAuthor(`Usunięto ${removed.length} utworów`).addField('Następnie', this.queue[0].videoInfo.name)]});
         else
             this.announce('removed', removed[0]);
         this.playspaceManager.current.queue = this.queue;
@@ -279,9 +246,9 @@ export class MusicQueue extends BaseClient {
     }
 
     get status() {
-        return this.playing?.dispatcher?.paused ? 'paused' 
-        : this.playing?.dispatcher ? 'playing' 
-        : this.VoiceCon?.status != 0 ? 'disconnected' 
+        return this.audioPlayer.state.status == AudioPlayerStatus.Paused ? 'paused' 
+        : this.audioPlayer.state.status == AudioPlayerStatus.Playing ? 'playing' 
+        : this.VoiceCon?.state.status != VoiceConnectionStatus.Ready ? 'disconnected' 
         : this.tryingToPlay ? 'busy' 
         : 'idle';
     }
@@ -319,7 +286,8 @@ export class MusicQueue extends BaseClient {
     }
 
     stop() {
-        this.playing?.dispatcher?.destroy();
+        clearInterval(this.timer);
+        this.audioPlayer.stop();
         this.disconnect();
         this.savePlayspaces();
         super.destroy();

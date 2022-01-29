@@ -1,11 +1,10 @@
-import Discord, { Collection } from 'discord.js';
+import Discord, { Collection, Intents, Message } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
 import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
-import { IExtMessage } from './util/interfaces/DiscordExtended';
 import { Database } from './util/database/Database';
 import { IDatabase } from './util/database/IDatabaseData';
 import { CmdParams as c } from './util/cmdUtils';
@@ -25,7 +24,7 @@ export class Mokkun extends Discord.Client {
     guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
     music = new MokkunMusic(this);
     RichEmbed = SafeEmbed;
-    sysColor = '#FFFFFE';
+    sysColor = 0xFFFFFE;
     commands: Collection<string, ICommand>;
     vars: any;
     db: IDatabase;
@@ -37,7 +36,7 @@ export class Mokkun extends Discord.Client {
     }
 
     private constructor(vars?: {[prop: string]: any}) {
-        super();
+        super({ intents: Object.values(Intents.FLAGS) }); //politely fuck off
         this.vars = Object.assign({}, process.env, vars);
         this.ensureVars();
         this.ensureDirs();
@@ -120,11 +119,13 @@ export class Mokkun extends Discord.Client {
         return args;
     }
 
-    newArgs(message: IExtMessage, options?: {splitter?: string, freeargs?: number, arrayExpected?: boolean}) {
-        return this.getArgs(message.content, message.prefix, options?.splitter, options?.freeargs, options?.arrayExpected);
+    newArgs(message: Message, options?: {splitter?: string, freeargs?: number, arrayExpected?: boolean}) {
+        return this.getArgs(message.content, this.db.Data?.[message?.guild.id]?.prefix || '.', options?.splitter, options?.freeargs, options?.arrayExpected);
     }
 
     embgen(color: string | number = this.sysColor, content: string, random?: boolean) {
+        if(typeof color == 'string')
+            color = parseInt(color.slice(1), 16);
         return new SafeEmbed().setColor(!random ? color : Math.floor(Math.random() * 0xFFFFFF)).setDescription(content);
     }
 
@@ -132,7 +133,7 @@ export class Mokkun extends Discord.Client {
         return !inAuthor ? this.embgen(color, content, random) : this.embgen(color, content, random).setDescription('').setAuthor(content);
     }
 
-    sendHelp(msg: IExtMessage, command: string | string[]) {
+    sendHelp(msg: Message, command: string | string[]) {
         this.commands.get('?').execute(msg, ['?', ...Array.isArray(command) ? command : [command]], this);
     }
 }

@@ -42,16 +42,16 @@ class remind {
         });
         bot.db.save('System.reminders', reminds);
 
-        msg.channel.send(new SafeEmbed().setColor(remCol).setAuthor('Ustawiono przypomnienie').setDescription(args[2])
+        Utils.send(msg.channel, new SafeEmbed().setColor(remCol).setAuthor('Ustawiono przypomnienie').setDescription(args[2])
                             .addField('Kiedy', Utils.genDateString(new Date(boomTime), '%D.%M.%Y %h:%m'), true)
-                            .addField('Od', msg.author, true).setFooter('id: ' + id)
+                            .addField('Od', msg.author.tag, true).setFooter('id: ' + id)
         ).then(async nmsg => {
             await nmsg.react('❌');
-            nmsg.createReactionCollector((r, u) => r.emoji.name == '❌' && u.id == msg.author.id, {time: Utils.parseTimeStrToMilis('2m')})
+            nmsg.createReactionCollector({ filter: (r, u) => r.emoji.name == '❌' && u.id == msg.author.id, time: Utils.parseTimeStrToMilis('2m')})
                 .on('collect', () => {
                     bot.db.save('System.reminders', ((bot.db.System.reminders || []) as IRemind[]).filter(r => r.id != id));
                     nmsg.delete();
-                    msg.channel.send(new SafeEmbed().setColor(remCol).setAuthor('Anulowano przypomnienie'));
+                    Utils.send(msg.channel, new SafeEmbed().setColor(remCol).setAuthor('Anulowano przypomnienie'));
                 })
                 .on('end', () => nmsg.reactions.removeAll().catch(e => {}));
         });
@@ -60,7 +60,7 @@ class remind {
     @aliases('l')
     @register('wyświetla wszystkie przypomnienia utworzone na bieżącym kanale', '`$c`')
     static list(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
-        reminds = reminds.filter(r => msg.guild && msg.guild.channels.cache.keyArray().includes(r.createdIn) || msg.channel.id == r.createdIn);
+        reminds = reminds.filter(r => msg.guild && [...msg.guild.channels.cache.keys()].includes(r.createdIn) || msg.channel.id == r.createdIn);
         if(!reminds.length) 
             throw new LoggedError(msg.channel, 'Brak przypomnień', remCol);
             
@@ -69,7 +69,7 @@ class remind {
         if(emb.fields.length > 9)
             Utils.createPageSelector(msg.channel as any, emb.populateEmbeds(9), {triggers: [msg.author.id]});
         else
-            msg.channel.send(emb);
+            Utils.send(msg.channel, emb);
     }
 
     @aliases('r', 'rem')
@@ -83,11 +83,11 @@ class remind {
         let r = reminds.find(r => r.id == args[1]);
         if(!r)
             throw new LoggedError(msg.channel, "Takie przypomnienie nie istnieje", remCol);
-        if(r.author == msg.author.id && (msg.guild?.channels.cache.keyArray().includes(r.createdIn) || r.createdIn == msg.channel.id)) {
+        if(r.author == msg.author.id && ([...msg.guild?.channels.cache.keys()].includes(r.createdIn) || r.createdIn == msg.channel.id)) {
             bot.db.save('System.reminders', bot.db.System.reminders.filter((r: IRemind) => r.id != args[1]));
-            msg.channel.send(bot.emb('Usunięto przypomnienie', remCol, true));
+            Utils.send(msg.channel, bot.emb('Usunięto przypomnienie', remCol, true));
         }
         else
-            throw new LoggedError(msg.channel, "Możesz usunąć jedynie swoje przypomnienia" + msg.channel.type != 'dm' ?  " z bieżącego serwera" : '', remCol)
+            throw new LoggedError(msg.channel, "Możesz usunąć jedynie swoje przypomnienia" + msg.channel.type != 'DM' ?  " z bieżącego serwera" : '', remCol)
     }
 }

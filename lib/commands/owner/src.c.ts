@@ -2,6 +2,7 @@ import { group, ownerOnly, register, CmdParams as c } from "../../util/cmdUtils"
 import fs from 'fs-extra';
 import path from 'path';
 import ax from 'axios';
+import Utils from "../../util/utils";
 
 @ownerOnly
 @group("BotOwner")
@@ -13,7 +14,7 @@ export default class {
             return desc && new bot.RichEmbed().setColor("#4782b3").setDescription(desc) || new bot.RichEmbed().setColor("#4782b3");
         }
 
-        args = bot.getArgs(msg.content, msg.prefix, "|", 2);
+        args = bot.getArgs(msg.content, bot.db.Data[msg?.guild?.id]?.prefix || '.', "|", 2);
         let mainDir = path.join(process.cwd());
 
         if(args[1] == 'ls') {
@@ -35,36 +36,36 @@ export default class {
                 str += x + '\n';
             if(str.length < 2040) {
                 out.setDescription(str);
-                msg.channel.send(out);
+                Utils.send(msg.channel, out);
             } else
-                msg.channel.send(`**Pliki w katalogu ${dir}:**\n${str}`, {split: true});
+                Utils.send(msg.channel, `**Pliki w katalogu ${dir}:**\n${str}`, {split: true});
         }
 
         else if(args[1] == 'dl') {
             if(!args[2]) {
-                msg.channel.send("kompresja folderu obecnie wyłączona...")
-                // msg.channel.send(emb("Kompresowanie...")).then(async nmsg => {
+                Utils.send(msg.channel, "kompresja folderu obecnie wyłączona...")
+                // Utils.send(msg.channel, emb("Kompresowanie...")).then(async nmsg => {
                 //     zip.zip(mainDir, {name: 'mokkun-serv', filter: true}, (n: string | string[]) => !n.includes("node_modules"));
-                //     await msg.channel.send("", {files: [path.join(mainDir, "mokkun-serv.zip")]});
-                //     nmsg.delete({timeout: 150});
+                //     await Utils.send(msg.channel, "", {files: [path.join(mainDir, "mokkun-serv.zip")]});
+                //     nmsg.delete();
                 //     fs.unlinkSync(path.join(mainDir, "mokkun-serv.zip"));
                 // });
                 // return;
             }
 
             fs.existsSync(path.join(mainDir, args[2]))
-            && msg.channel.send("", {files: [path.join(mainDir, args[2])]});
+            && Utils.send(msg.channel, "", {files: [path.join(mainDir, args[2])]});
         }
 
         else if(args[1] == 'rm' && args[2]) {
             let dir = path.join(mainDir, args[2]);
             if(!dir.includes(mainDir) || dir == mainDir || dir == path.join(mainDir, "/") || !fs.existsSync(dir)) return;
             fs.removeSync(dir);
-            msg.channel.send(emb(`Usunięto plik/katalog **${args[2]}**`));
+            Utils.send(msg.channel, emb(`Usunięto plik/katalog **${args[2]}**`));
         }
 
         else if(args[1] == 'up') {
-            let attch = msg.attachments.array();
+            let attch = Array.from(msg.attachments.values());
             if(!attch[0]) return;
             let dir = path.join(mainDir, args[2] || "");
             if(!dir.includes(mainDir))
@@ -74,7 +75,7 @@ export default class {
             let savestr = fs.createWriteStream(path.join(dir, attch[0].url.slice(attch[0].url.lastIndexOf("/"))));
             let resp = await ax.get(attch[0].url, { responseType: 'stream' });
             resp.data.pipe(savestr);
-            resp.data.on("end", () => msg.channel.send(emb("Wysłano plik")));
+            resp.data.on("end", () => Utils.send(msg.channel, emb("Wysłano plik")));
         }
     }
 }

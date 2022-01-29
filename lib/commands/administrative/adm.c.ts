@@ -1,7 +1,6 @@
 import { group, aliases, notdm, permissions, CmdParams as c, register } from "../../util/cmdUtils";
 import Utils from '../../util/utils';
-import { Message } from "discord.js";
-import { IExtTextChannel } from "../../util/interfaces/DiscordExtended";
+import { Message, TextChannel } from "discord.js";
 
 @notdm
 @group("Administracyjne")
@@ -11,22 +10,22 @@ export default class {
     @register('Zmienia prefix komend dla serwera', '`$psetprefix {nowy prefix}`')
     static setprefix(msg: c.m, args: c.a, bot: c.b) {
         if(!args[1]) {
-            msg.channel.send(bot.emb(`Obecny prefix: \`${msg.prefix}\``));
+            Utils.send(msg.channel, bot.emb(`Obecny prefix: \`${bot.db.Data?.[msg.guild.id]?.prefix || '.'}\``));
             return;
         }
         if(args[1].length > 10) {
-            msg.channel.send(bot.embgen(bot.sysColor, `Zbyt długi prefix (max. 10)`));
+            Utils.send(msg.channel, bot.embgen(bot.sysColor, `Zbyt długi prefix (max. 10)`));
             return;
         }
         bot.db.save(`Data.${msg.guild.id}.prefix`, args[1]);
-        msg.channel.send(bot.embgen(bot.sysColor, `Zmieniono prefix na ${args[1]}`));
+        Utils.send(msg.channel, bot.embgen(bot.sysColor, `Zmieniono prefix na ${args[1]}`));
     }
 
     @aliases("unlock")
     @permissions("MANAGE_GUILD")
     @register('blokuje / odblokowuje komendy na kanale / serwerze', `\`$plock {komenda lub zbiór komend w postaci [komenda1, komenda2, ...]}\` - blokuje lub odblokowuje komendy`)
     static lock(msg: c.m, args: any, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, null, null, true);
+        args = bot.getArgs(msg.content, bot.db.Data?.[msg.guild.id]?.prefix || '.', null, null, true);
         if(!args[1]) return;
         if(typeof args[1] == 'string')
             args[1] = [args[1]];
@@ -57,17 +56,17 @@ export default class {
             out.msg += `Zablokowano komendę/y \`${out.locked.join(', ')}\` na tym ${guildLock ? 'serwerze' : 'kanale'}\n`;
         if(out.unlocked.length != 0)
             out.msg += `Odblokowano komendę/y \`${out.unlocked.join(', ')}\` na tym ${guildLock ? 'serwerze' : 'kanale'}\n`;
-        if(out.msg.length != 0) msg.channel.send(bot.embgen(bot.sysColor, out.msg));
+        if(out.msg.length != 0) Utils.send(msg.channel, bot.embgen(bot.sysColor, out.msg));
     }
 
     @permissions("MANAGE_GUILD")
     @register('odblokowuje wszystkie komendy na kanale / serwerze', '`$punlockAll ("guild")` - odblokowuje wszystkie komendy na kanale lub serwerze (przy dodanej fladze "guild")')
     static unlockAll(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, msg.prefix, null, null, true);
+        args = bot.getArgs(msg.content, bot.db.Data?.[msg.guild.id]?.prefix, null, null, true);
         if(args[0] == 'unlockAll') {
             let guildLock = args[1] == "guild";
             bot.db.save(`Data.${msg[guildLock ? "guild" : "channel"].id}.lockedComs`, undefined);
-            msg.channel.send(bot.embgen(bot.sysColor, `Odblokowano wszystkie komendy na tym ${guildLock ? 'serwerze' : 'kanale'}`));
+            Utils.send(msg.channel, bot.embgen(bot.sysColor, `Odblokowano wszystkie komendy na tym ${guildLock ? 'serwerze' : 'kanale'}`));
             return;
         }
     }
@@ -90,23 +89,23 @@ export default class {
         if(!/^[0-9]+$/.test(args[1])) return;
        
         if(parseInt(args[1]) > max) {
-            msg.channel.send(bot.embgen(color, `Możesz maksymalnie usunąć ${max} wiadomości`));
+            Utils.send(msg.channel, bot.embgen(color, `Możesz maksymalnie usunąć ${max} wiadomości`));
             return;
         }
         
         let smsg: Message;
-        await msg.channel.send(bot.embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
+        await Utils.send(msg.channel, bot.embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
         let msgss = await Utils.fetchMsgs(msg, parseInt(args[1]), (msg.mentions.members.first()) ? msg.mentions.members.first().id : undefined, msg.id);
-        smsg.delete({timeout: 150});
+        smsg.delete();
 
         if(msgss.size == 0) {
             let nmsg: Message;
-            msg.channel.send(bot.embgen(color, "Nie znaleziono żadnych wiadomości!")).then(nmsgg => nmsg = nmsgg);
-            await setTimeout(() => {nmsg.delete({timeout: 150}); msg.delete({timeout: 150});}, 4000);
+            Utils.send(msg.channel, bot.embgen(color, "Nie znaleziono żadnych wiadomości!")).then(nmsgg => nmsg = nmsgg);
+            await setTimeout(() => {nmsg.delete(); msg.delete();}, 4000);
             return;
         }
 
-        msg.channel.send(bot.embgen(color, `Czy chcesz usunąć **${msgss.size}** wiadomości${(msg.mentions.members.first() != undefined) ? ` od użytkownika **${msg.mentions.members.first().user.tag}**` : ``}?\nZareaguj aby potwierdzić`)).then(async msgg => 
+        Utils.send(msg.channel, bot.embgen(color, `Czy chcesz usunąć **${msgss.size}** wiadomości${(msg.mentions.members.first() != undefined) ? ` od użytkownika **${msg.mentions.members.first().user.tag}**` : ``}?\nZareaguj aby potwierdzić`)).then(async msgg => 
         {
             let eventL: any;
             setTimeout(() => bot.removeListener("messageReactionAdd", eventL), 600000);
@@ -119,21 +118,21 @@ export default class {
                 
                 if(rect.emoji.toString() == '👍')
                 {
-                    msg.delete({timeout: 150});
-                    msgg.delete({timeout: 150});
-                    (msg.channel as IExtTextChannel).bulkDelete(msgss).catch(async () => {
+                    msg.delete();
+                    msgg.delete();
+                    (msg.channel as TextChannel).bulkDelete(msgss).catch(async () => {
                         let nmsg: Message;
-                        await msg.channel.send(bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
+                        await Utils.send(msg.channel, bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
                         let jobs: Promise<any>[] = [];
                         msgss.forEach(msg => jobs.push(msg.delete()));
                         await Promise.all(jobs);
-                        nmsg.delete({timeout: 150});
+                        nmsg.delete();
                     });
                 }
                 else 
                 {
-                    await msgg.edit(bot.embgen(color, "Wiadomości nie zostaną usunięte"));
-                    setTimeout(() => {msg.delete({timeout: 150}); msgg.delete({timeout: 150});}, 4000);
+                    await msgg.edit({ embeds: [bot.embgen(color, "Wiadomości nie zostaną usunięte")] });
+                    setTimeout(() => {msg.delete(); msgg.delete();}, 4000);
                 }
 
                 bot.removeListener("messageReactionAdd", eventL);
