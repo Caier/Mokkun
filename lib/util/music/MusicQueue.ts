@@ -163,7 +163,7 @@ export class MusicQueue extends BaseClient {
         }
         catch(e) {
             this.tryingToPlay = false;
-            throw new LoggedError(this.outChannel, e.message);
+            throw new LoggedError(this.outChannel, (e as Error).message);
         }
     }
 
