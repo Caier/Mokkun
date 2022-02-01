@@ -22,7 +22,7 @@ export default class {
         try {
             eval(decls + '\n\n' + code);
         } catch(err) {
-            Utils.send(msg.channel, 'Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + (err as Error).stack.split('\n').slice(0, 5).join('\n'), {split: true, code: 'js'});
+            Utils.send(msg.channel, 'Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + (err instanceof Error ? err.stack.split('\n').slice(0, 5).join('\n') : err), {split: true, code: 'js'});
         }
     }
 

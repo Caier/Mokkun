@@ -2,7 +2,8 @@ import { group, aliases, register, CmdParams as c, nsfw, deprecated, subcommandG
 import { fromGB, fromBooru, fromNH, fromPH } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import { Message, MessageEmbed, MessageReaction, User } from "discord.js";
+import { Message, MessageEmbed, MessageReaction, TextChannel, User } from "discord.js";
+import { LoggedError } from "../../util/errors/errors";
 
 @nsfw
 @group("NSFW")
@@ -142,60 +143,16 @@ export default class H {
                 : await fromNH(null, args[1])
         : await fromNH();
        
-        if(!doujin) {
-            Utils.send(msg.channel, new SafeEmbed().setColor("#f40e29").setDescription(`**${msg.author.tag}** nie znaleziono!`));
-            return;
-        }
+        if(!doujin)
+            throw new LoggedError(msg.channel, `Nie znaleziono takiego doujina!`, 0xf40e29);
 
-        let embed = new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setFooter(`Strony: ${doujin.maxPage}`).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png");
-
-        Utils.send(msg.channel, embed).then(async nMsg => 
-            {
-                let curPage = 0;
-                let eventL: any;
-                for (let x of ['⏮','◀','▶','⏭','2⃣','5⃣','🔟','🔀','❌'])
-                    await nMsg.react(x);
-
-                bot.on("messageReactionAdd", eventL = async (react: { emoji: { toString: () => any; }; message: { id: string; }; users: { remove: (arg0: any) => void; }; }, user: { id: string; }) =>
-                {
-                    let emoji = react.emoji.toString();
-                    setTimeout(() => bot.removeListener("messageReactionAdd", eventL), 1800000);
-
-                    if(react.message.id != nMsg.id || user.id != msg.author.id) return;
-
-                    if(['⏭','2⃣','5⃣','🔟','🔀','◀','▶'].includes(emoji))
-                    {
-                        react.users.remove(user.id);
-                        switch(emoji)
-                        {
-                            case '▶': curPage++; break;
-                            case '◀': curPage--; break;
-                            case '⏭': curPage = doujin.maxPage; break;
-                            case '2⃣': curPage += 2; break;
-                            case '5⃣': curPage += 5; break;
-                            case '🔟': curPage += 10; break;
-                            case '🔀': curPage = Math.floor(Math.random() * doujin.maxPage); break;
-                        }
-                        if(curPage > doujin.maxPage || curPage < 1)
-                            curPage = (curPage > doujin.maxPage) ? doujin.maxPage : (curPage < 1) ? 1 : null;
-                        
-                        let newpageURL = `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${curPage}.${doujin.format}`;
-                        nMsg.edit({embeds: [new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + curPage).setImage(newpageURL).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setFooter(`Strona ${curPage}/${doujin.maxPage}`)]});
-                    }
-                    else if(emoji == '⏮')
-                    {
-                        react.users.remove(user.id);
-                        nMsg.edit({embeds: [embed]});
-                        curPage = 0;
-                    }
-                    else if(emoji == '❌')
-                    {
-                        nMsg.edit({embeds: [new SafeEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`)]});
-                        nMsg.reactions.removeAll();
-                        bot.removeListener("messageReactionAdd", eventL);
-                    }
-                });
-            });
+        let pages = [new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png")];
+        for(let i = 1; i < doujin.maxPage; i++)
+            pages.push(new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + i).setColor(0xf40e29).setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setImage(
+                `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${i}.${doujin.format}`
+            ));
+        
+        await Utils.createPageSelector(msg.channel as TextChannel, pages);
     }
 
     @deprecated
