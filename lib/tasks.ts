@@ -33,9 +33,9 @@ new Task(60_000, async (self) => { //ztm sytuacja komunikacyjna
     for (let x of news.komunikaty) {
         let embed = new self.bot.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
         for(let c of newsSubs.users)
-            (self.bot.users.resolve(c) as any).send(embed);
+            self.bot.users.resolve(c).send({ embeds: [embed] });
         for(let c of newsSubs.channels)
-            (self.bot.channels.resolve(c) as any).send(embed)
+            (self.bot.channels.resolve(c) as TextChannel).send({ embeds: [embed] });
     }
     fs.writeFileSync(files.prevRes, JSON.stringify(news));
 })

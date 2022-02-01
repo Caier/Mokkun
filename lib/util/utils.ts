@@ -1,4 +1,4 @@
-import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message, ColorResolvable, ReactionCollectorOptions, TextBasedChannel, Formatters, MessageOptions, Util } from 'discord.js';
+import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message, ColorResolvable, ReactionCollectorOptions, TextBasedChannel, Formatters, MessageOptions, Util, MessageActionRow, MessageButton, MessageComponentCollectorOptions, MessageComponentInteraction, MessageSelectMenu } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { SafeEmbed } from './embed/SafeEmbed';
@@ -8,9 +8,11 @@ namespace Utils {
         if(content instanceof MessageEmbed)
             return await channel.send({ ...options, embeds: [content] });
         if(options?.split) {
-            let msgs = Util.splitMessage(content);
+            let msgs = Util.splitMessage(content, { maxLength: 1990 });
+            if(options?.code)
+                msgs = msgs.map(m => Formatters.codeBlock(options.code, m));
             let lastM: Message;
-            for(let m in msgs)
+            for(let m of msgs)
                 lastM = await channel.send({ content: m, ...options });
             return lastM;
         }
@@ -116,38 +118,68 @@ namespace Utils {
     }
 
     /**
-     * Function used to create a multipage embed message from an array of MessageEmbeds
-     * @param channel Channel to send the embed to
-     * @param pages Array of MessageEmbeds
-     * @param opts (optional) object with additional options
-     * @param opts.triggers Who should trigger the collector (Array of UserIDs)
-     * @param opts.emojis Which emojis to use as reactions (Default: ['⏪', '◀', '▶', '⏩'])
-     * @param opts.collOpts Options of the reactionCollector
-     * @returns Reaction collector
-     */
-    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[], opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, collOpts?: ReactionCollectorOptions}) {
+    * Function used to create a multipage embed message from an array of MessageEmbeds
+    * @param channel Channel to send the embed to
+    * @param pages Array of MessageEmbeds or array of Promises resolving in MessageEmbed or array of async functions resolving in MessageEmbed
+    * @param opts (optional) object with additional options
+    * @param opts.triggers Who should trigger the collector (Array of UserIDs)
+    * @param opts.emojis Which emojis to use as buttons (Default: ['⏪', '◀', '▶', '⏩', '❌'])
+    * @param opts.toEdit Instead of sending a new message, which existing one should be made into a page selector?
+    * @param opts.disableMenu Should the MessageSelectMenu be disabled? (default false)
+    * @param opts.collOpts Options of the MessageComponentCollector
+    * @returns [collector, message to which collector is attached]
+    */
+    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[],
+    opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, disableMenu?: boolean, collOpts?: MessageComponentCollectorOptions<MessageComponentInteraction>}) {
         let cache: MessageEmbed[] = [];
-        ///@ts-ignore
-        const getPage = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await pages[i]() || await pages[i]);
+        const getPage: (arg0: number) => Promise<MessageEmbed> = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await (pages[i] as any)() || await pages[i]);
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
-        let nmsg = opts?.toEdit ? await opts.toEdit.edit(await getPage(0)) : await channel.send(await getPage(0));
+        let components = [new MessageActionRow().addComponents(emojis.map((e, i) => e && new MessageButton().setCustomId(''+i).setEmoji(e).setStyle("SECONDARY").setDisabled(i < 2)).filter(Boolean))];
+        if(!opts?.disableMenu) {
+            let perOption = Math.ceil(pages.length / 25);
+            components.unshift(new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId('menu').setPlaceholder(`Strona 1/${pages.length}`)
+                .setOptions(Array(Math.floor(pages.length / perOption)).fill(0).map((_, i) => ({ label: 'Strona '+ ((i * perOption) + 1), value: ''+ i * perOption })))));
+        }
+        let nmsg = opts?.toEdit ? await opts.toEdit.edit({ embeds: [await getPage(0)], components }) : await channel.send({ embeds: [await getPage(0)], components });
         let curPage = 0;
-        if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
-        for(let em of emojis.filter(Boolean))
-            await nmsg.react(em);
-        let coll = nmsg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot &&
-            emojis.includes(react.emoji.name) && (!opts?.triggers || opts?.triggers.includes(user.id)), ...opts?.collOpts || {time: 600_000}});
-        coll.on('collect', async (react, user) => {
-            if(channel instanceof TextChannel) react.users.remove(user.id);
-            switch(react.emoji.name) {
-                case emojis[0]: (curPage = 0) || nmsg.edit(await getPage(0)); break;
-                case emojis[1]: curPage > 0 && nmsg.edit(await getPage(--curPage)); break;
-                case emojis[2]: curPage < pages.length - 1 && nmsg.edit(await getPage(++curPage)); break;
-                case emojis[3]: (curPage = pages.length - 1) && nmsg.edit(await getPage(pages.length - 1)); break;
-                case emojis[4]: nmsg.delete();
+
+        let coll = nmsg.createMessageComponentCollector({ 
+            ...(opts?.collOpts || { time: 600_000 })
+        }).on('collect', async int => {
+            if(opts?.triggers && !opts.triggers.includes(int.user.id)) {
+                await int.reply({ embeds: [new SafeEmbed().setAuthor('Nie jesteś użytkownikiem, który może kontrolować tą wiadomość.').setColor("WHITE")], ephemeral: true })
+                return;
             }
-            if(!(await getPage(curPage) instanceof MessageEmbed)) nmsg.suppressEmbeds(true);
+
+            const edit = async (page: number) => {
+                if(!opts?.disableMenu)
+                    (components[0].components[0] as MessageSelectMenu).setPlaceholder(`Strona ${curPage + 1}/${pages.length}`);
+                components.forEach(row => row.components.forEach(c => c.setDisabled(false)));
+                for(let c of components[opts?.disableMenu ? 0 : 1].components)
+                    switch(+c.customId) {
+                        case 0: case 1: curPage == 0 && c.setDisabled(true); break;
+                        case 2: case 3: curPage == pages.length - 1 && c.setDisabled(true);
+                    }
+                await nmsg.edit({ embeds: [await getPage(page)], components });
+            };
+
+            components.forEach(row => row.components.forEach(c => c.setDisabled(true)));
+            await int.update({ components });
+            if(int.isButton())
+                switch(+int.customId) {
+                    case 0: (curPage = 0) || await edit(0); break;
+                    case 1: curPage > 0 && await edit(--curPage); break;
+                    case 2: curPage < pages.length - 1 && await edit(++curPage); break;
+                    case 3: (curPage = pages.length - 1) && await edit(pages.length - 1); break;
+                    case 4: coll.stop(); nmsg.delete();
+                }
+            else if(int.isSelectMenu())
+                await edit(curPage = +int.values[0]);
+        }).on('end', async () => {
+            components.forEach(row => row.components.forEach(c => c.setDisabled(true)));
+            await nmsg.edit({ components });
         });
+
         return [coll, nmsg];
     }
 
