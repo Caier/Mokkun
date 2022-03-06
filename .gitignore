@@ -103,3 +103,4 @@ files/temp/*
 build/
 prevRes
 files/global/guildScripts
+unregister.mjs

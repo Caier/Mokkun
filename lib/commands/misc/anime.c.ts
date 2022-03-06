@@ -7,7 +7,7 @@ import Context from "../../util/commands/Context";
 @group('Anime')
 export default class {
     @aliases('char')
-    @register('gets a detailed description of an anime character', '', { free: 1 })
+    @register('gets a detailed description of an anime character', '', { free: 0 })
     @options({ type: "STRING", name: 'character', description: 'the character to lookup (min. 3 letters)', required: true })
     static async character(ctx: Context) {
         const color = 0xa3cb48;
