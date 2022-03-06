@@ -1,33 +1,29 @@
-import { group, aliases, register, CmdParams as c } from "../../util/cmdUtils";
+import { group, aliases, register, CmdParams as c, options } from "../../util/commands/cmdUtils";
+import Context from "../../util/commands/Context";
 import Utils from "../../util/utils";
 
+const selPhrases: [number, string][] = [[1, '| to najlepszy wybór!'], [1, 'Wybieram |'], [0.7, '| brzmi nieźle!'], [0.7, 'Oczywiście, że |'], [0.5, 'Hmm..., |'], [0.3, 'Osobiście wybrałbym |, ale nie mam pewności...']];
+function choosePhrase(choice: string, from: [number, string][]) {
+    let luck = Math.random();
+    let filCh = from.filter(v => v[0] >= luck);
+    return filCh[Utils.rand(0, filCh.length - 1)][1].replace('|', choice);
+}
+
 @group('Interakcja')
-export default class H {
-    private static selPhrases = [[1, '| to najlepszy wybór!'], [1, 'Wybieram |'], [0.7, '| brzmi nieźle!'], [0.7, 'Oczywiście, że |'], [0.5, 'Hmm..., |'], [0.3, 'Osobiście wybrałbym |, ale nie mam pewności...']];
-    private static choosePhrase(choice: string, from: [number, string][]) {
-        let luck = Math.random();
-        let filCh = from.filter(v => v[0] >= luck);
-        return filCh[Utils.rand(0, filCh.length - 1)][1].replace('|', choice);
-    }
-
+export default class {
     @aliases('select', 'sel', 'ch')
-    @register('wybiera jedną z podanych możliwości', '`$pchoose {wybory oddzielone symbolem |}`')
-    static choose(msg: c.m, args: c.a, bot: c.b) {
-        if(!args[1]) {
-            bot.sendHelp(msg, 'choose');
-            return;
-        }
-        args = bot.newArgs(msg, {splitter: '|', freeargs: 1});
-        Utils.send(msg.channel, H.choosePhrase(`**${args[Utils.rand(1, args.length - 1)]}**`, H.selPhrases as any));
+    @register('chooses one of the provided choices', '', { free: 1 })
+    @options({ type: 'STRING', name: 'options', description: 'the options to choose from separated by the | character', required: true })
+    static async choose(ctx: Context) {
+        const choices = (ctx.args[0] as string).split('|').map(c => c.trim());
+        await ctx.reply(choosePhrase(`**${choices[Utils.rand(0, choices.length - 1)]}**`, selPhrases));
     }
 
-    @register('losuje numer spośród podanego zakresu :cowboy:', '`$proll (minimum) {maksimum}`')
-    static roll(msg: c.m, args: c.a, bot: c.b) {
-        const fi = args.length == 3;
-        if(!args.slice(1).every(v => !isNaN(+v)) || args.length == 1 || (fi && args[2] < args[1]) || (!fi && args[1] < 1)) {
-            bot.sendHelp(msg, 'roll');
-            return;
-        }
-        Utils.send(msg.channel, `**${msg.author.username}** losuje numer z zakresu **${fi ? args[1] : 1}** - **${fi ? args[2] : args[1]}**...\nWylosowano: **${Utils.rand(fi ? +args[1] : 1, fi ? +args[2] : +args[1])}**`);
+    @register('roll a number between min and max (inclusive)', '')
+    @options({ type: "INTEGER", name: 'max', description: 'the maximum roll', required: true },
+             { type: "INTEGER", name: 'min', description: 'the minimum roll' })
+    static async roll(ctx: Context) {
+        const [min, max] = [ctx.options.get('min'), ctx.options.get('max')] as number[];
+        await ctx.reply(`**${ctx.user.username}** losuje numer z zakresu **${min ?? 1}** - **${max}**...\nWylosowano: **${Utils.rand(min ?? 1, max)}**`);
     }
 }

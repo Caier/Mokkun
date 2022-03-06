@@ -1,179 +1,173 @@
-import { group, aliases, register, CmdParams as c, nsfw, deprecated, subcommandGroup } from "../../util/cmdUtils";
-import { fromGB, fromBooru, fromNH, fromPH } from '../../util/misc/searchMethods';
+import { group, aliases, register, CmdParams as c, nsfw, options, autocomplete } from "../../util/commands/cmdUtils";
+import { fromGB, fromBooru, fromNH, gbRet } from '../../util/misc/searchMethods';
 import Utils from "../../util/utils";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import { Message, MessageEmbed, MessageReaction, TextChannel, User } from "discord.js";
-import { LoggedError } from "../../util/errors/errors";
+import { ColorResolvable, DMChannel, Message, MessageActionRow, MessageButton, MessageEmbed, MessageSelectMenu, TextChannel } from "discord.js";
+import Context from "../../util/commands/Context";
+import Task from "../../util/tasks/Task";
+import { IBooru } from "../../util/interfaces/misc";
+import ax from 'axios';
+
+class ImageBoardEmbedHandler {
+    private embeds: (MessageEmbed | string)[] = [];
+    private msg: Message;
+
+    constructor(
+        private readonly ctx: Message | TextChannel | DMChannel,
+        private readonly getPost: () => Promise<gbRet>,
+        private readonly embedBuilder: (arg0: gbRet) => (MessageEmbed | string)[],
+        private readonly color: ColorResolvable
+    ) { this.initial() }
+
+    private getFreshComponents(img: gbRet) {
+        let components = [new MessageActionRow().addComponents([
+            new MessageButton().setCustomId('ref').setStyle('SECONDARY').setEmoji('🔄'),
+            new MessageButton().setCustomId('lock').setStyle('SECONDARY').setEmoji('🔒')
+        ])];
+        if(img.comments.length) {
+            components.unshift(new MessageActionRow().addComponents([new MessageSelectMenu().setCustomId('sel').setPlaceholder('...').addOptions(Array(Math.ceil(img.comments.length / 10)).fill(0).map((_, i) => ({ label: `Comments page ${i + 1}`, value: ''+(i+1) })))]));
+            (components[0].components[0] as MessageSelectMenu).spliceOptions(0, 0, { label: 'Embed', value: '0', default: true });
+        }
+        return components;
+    }
+
+    private async initial() {
+        let post;
+        try {
+            post = await this.getPost();
+        } catch (err) {
+            if(!(this.ctx instanceof Message))
+                return;
+            const o = { embeds: [new SafeEmbed().setColor(this.color).setDescription('Error while fetching post: ' + (err as Error).message)], content: null as any };
+            await this.ctx.edit(o);
+            return;
+        }
+        if(!post) {
+            const o = { embeds: [new SafeEmbed().setColor(this.color).setAuthor('No results')] };
+            return this.ctx instanceof Message ? await this.ctx.edit(o) : await this.ctx.send(o)
+        }
+        this.embeds = this.embedBuilder(post);
+        const options = { embeds: typeof this.embeds[0] == 'string' ? [] : [this.embeds[0]], content: typeof this.embeds[0] == 'string' ? this.embeds[0] : null, components: this.getFreshComponents(post) };
+        this.msg = this.ctx instanceof Message ? await this.ctx.edit(options) : await this.ctx.send(options);
+        this.attachCollector();
+    }
+
+    attachCollector() {
+        let locked = false;
+        let coll = this.msg.createMessageComponentCollector({ idle: Utils.parseTimeStrToMilis('1h') });
+        coll.on('collect', async int => {
+            this.msg.components.forEach(a => a.components.forEach(c => c.setDisabled(true)));
+            await int.update({ components: this.msg.components });
+            this.msg.components.forEach(a => a.components.forEach(c => c.setDisabled(c.customId == 'lock' && !!(c as MessageButton).label)));
+            if(int.isSelectMenu()) {
+                (this.msg.components[0].components[0] as MessageSelectMenu).options.forEach(o => o.default = o.value == int.values[0]);
+                const sel = this.embeds[+int.values[0]];
+                await this.msg.edit({ embeds: typeof sel == 'string' ? [] : [sel], content: typeof sel == 'string' ? sel : null, components: this.msg.components });
+            }
+            else if(int.customId == 'ref') {
+                let post = await this.getPost();
+                if(!locked) {
+                    this.embeds = this.embedBuilder(post);
+                    this.msg = await this.msg.edit({ embeds: typeof this.embeds[0] == 'string' ? [] : [this.embeds[0]], content: typeof this.embeds[0] == 'string' ? this.embeds[0] : null, components: this.getFreshComponents(post) });
+                } else {
+                    this.msg.components.slice(-1)[0].components.shift();
+                    await this.msg.edit({ components: this.msg.components });
+                    new ImageBoardEmbedHandler(this.msg.channel as any, this.getPost, this.embedBuilder, this.color);
+                }
+            }
+            else {
+                locked = true;
+                (this.msg.components.slice(-1)[0].components[1].setDisabled(true) as MessageButton).setLabel('by ' + int.user.tag);
+                await this.msg.edit({ components: this.msg.components });
+            }
+        });
+        coll.on('error', err => { this.msg.reply({ embeds: [new SafeEmbed().setDescription('**Error in ImageBoardEmbedCollector:** ' + err.message)] }) });
+    }
+}
 
 @nsfw
 @group("NSFW")
 export default class H {
-    static embFromImg(x: any, s?: string) {
-        let embed = new SafeEmbed();
-        if(x.tags != "video") {
-            embed.setFooter(`ID: ${x.id}, Score: ${x.score}, Rating: ${x.rating}, Artist: ${x.artist}, Posted: ${x.posted}\nTags: ` + x.tags).setImage(x.link).setTitle((!s || s == '') ? "random" : s)
-                 .setURL(x.page).setColor("#006ffa").setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/");
-            if(x.comments.length != 0) 
-                embed.addField(`${x.comments[0].name}:`, x.comments[0].comment);
-        } 
-        else embed = x.link;
-        return embed;
-    }
-
-    static async newPostReact(msg: Message, method: (ret: boolean) => void | Promise<(MessageEmbed | string) | (MessageEmbed | string)[]>) {
-        await msg.react('🔄');
-        await msg.react('🔒');
-        let save = false;
-        let coll = msg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot && ['🔄', '🔒'].includes(react.emoji.name) });
-        let r = (react: MessageReaction, user: User) => {
-            save = true;
-            r = () => react.users.remove(user);
-        };
-        coll.on('collect', async (react, user) => {
-            if(react.emoji.name == '🔒')
-                r(react, user);
-            else if(react.emoji.name == '🔄') {
-                if(msg.flags.has('SUPPRESS_EMBEDS'))
-                    msg.suppressEmbeds(false);
-                react.users.remove(user.id);
-                if(save) {
-                    coll.stop();
-                    react.remove();
-                    method(false);
-                }
-                else {
-                    let res = await method(true);
-                    if(Array.isArray(res))
-                        Utils.createPageSelector(msg.channel as any, res as any, {toEdit: msg, emojis: [null, `◀`, `▶`]});
-                    else if(typeof res != 'string') {
-                        msg.edit({embeds: [res as MessageEmbed]});
-                        if(typeof res == 'string')
-                            msg.suppressEmbeds(true);
-                    }
-                }
-            }
-        });
-    }
-
-    @register(':peepSelfie:', '`$c {wyszukanie}` - zobacz sam')
-    static async gb(msg: c.m, args: c.a, bot: c.b, ret = false) {
-        args = bot.newArgs(msg, { freeargs: 1 });
+    @register('gelbooru scraper', '', { free: 0 })
+    @options({ type: 'STRING', name: 'search', description: 'the search query', autocomplete: true })
+    @autocomplete(async int => {
+        const q = (int.options.getString('search') ?? '').split(' ');
+        let resp = await ax.get(`https://gelbooru.com/index.php?page=autocomplete2&term=${encodeURI(q.pop())}&type=tag_query`, { responseType: 'json' });
+        return resp.data.map((r: any) => ({ name: q.join(' ') + ' ' + r.value, value: q.join(' ') + ' ' + r.value }));
+    })
+    static async gb(ctx: Context) {
         const color = "#006ffa";
-        let sort = args[1].includes('sort:');
+        const q = ctx.options.get('search') as string ?? '';
+        const sort = q.includes('sort:');
+        const msg = await ctx.reply({ embeds: [ctx.emb('Searching', { color })], fetchReply: true });
 
-        let nmsg = !ret && await Utils.send(msg.channel, bot.emb('Zbieranie postów...', color)); 
-        let imgs = await fromGB(args[1], !sort);
+        function imgToEmb(img: gbRet) {
+            let embed = new SafeEmbed().setAuthor("Gelbooru", "https://pbs.twimg.com/profile_images/1118350008003301381/3gG6lQMl.png", "http://gelbooru.com/")
+                .setColor(color).setURL(img.page).setImage(img.link).setTitle(!q ? 'random' : q)
+                .setFooter(`ID: ${img.id}, Score: ${img.score}, Rating: ${img.rating}, Artist: ${img.artist}, Posted: ${img.posted}\nTags: ` + img.tags);
+            img.comments.length && embed.addField(`${img.comments[0].name}:`, img.comments[0].comment);
+            return embed;
+        }
 
-        if(!imgs.length) {
-            nmsg?.edit({embeds: [bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`)]});
-            return;
-        }
-        
-        if(sort && !ret)
-            await Utils.createPageSelector(msg.channel as any, imgs.map(i => async () => H.embFromImg(await i(), args[1])), {toEdit: nmsg});
-        else {
-            let x = await imgs[0]();
-            let embed = H.embFromImg(x, args[1])
-            if(x.comments.length > 1) {
-                let emb = new SafeEmbed().setTitle("Komentarze").setColor(color);
-                x.comments.forEach(com => emb.addField(`${com.score}👍  ${com.name}:`, com.comment));
-                let embs = emb.populateEmbeds();
-                if(ret)
-                    return [embed, ...(embs.length > 0 ? embs : [emb])];
-                await Utils.createPageSelector(msg.channel as any, [embed, ...(embs.length > 0 ? embs : [emb])], {toEdit: nmsg, emojis: [null, `◀`, `▶`]});
-                H.newPostReact(nmsg, r => H.gb(msg, args, bot, r));
-            }
-            else if(ret)
-                return embed;
-            else {
-                nmsg.edit({embeds: [embed]}).then(nmsg => H.newPostReact(nmsg, r => H.gb(msg, args, bot, r)));
-                x.tags == 'video' && await nmsg.suppressEmbeds(true);
-            }
-        }
+        if(sort)
+            await Utils.createPageSelector(msg, (await fromGB(q, false)).map(i => async () => await i().then(img => img.tags == 'video' ? img.link : imgToEmb(img))), { emojis: ['⏪', '◀', '▶', '⏩'] });
+        else
+            new ImageBoardEmbedHandler(msg, async () => await (await fromGB(q))?.[0]?.(), img => {
+                let embed = imgToEmb(img);
+                let comb = new SafeEmbed().setTitle("Comments").setColor(color);
+                img.comments.forEach(com => comb.addField(`${com.score}👍  ${com.name}:`, com.comment));
+                return [img.tags == 'video' ? img.link : embed, ...comb.populateEmbeds(10)];
+            }, color);
     }
 
-    @register('scraper wielu .booru', '`$c {nazwa booru} {wyszukanie}')
+    @register('scraper of different .boorus', '', { free: 1 })
     @aliases('b')
-    static async booru(msg: c.m, args: c.a, bot: c.b, ret = false) {
-        args = bot.newArgs(msg, {freeargs: 2});
+    @options({ type: 'STRING', name: 'name', description: 'the name of the booru', required: true, autocomplete: true },
+             { type: 'STRING', name: 'search', description: 'the search query' })
+    @autocomplete(int => {
+        const boorus = Task.tasks.find(t => t.name == 'booruslist').ownData as IBooru[];
+        const q = int.options.getString('name');
+        let sugg: IBooru[] = [];
+        sugg.push(...boorus.filter(b => b.name.toLowerCase().startsWith(q)));
+        sugg.push(...boorus.filter(b => b.name.toLowerCase().includes(q) && !sugg.includes(b)));
+        return sugg.slice(0, 25).map(b => ({ name: `${b.name} (${b.images} images)`, value: b.short }));
+    })
+    static async booru(ctx: Context) {
         const color = "#7750ff";
-
-        let nmsg = !ret && await Utils.send(msg.channel, bot.emb('Zbieranie postów...', color)); 
-        let imgs = await fromBooru(args[1], args[2]);
-
-        if(!imgs.length) {
-            nmsg?.edit({embeds: [bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`)]});
-            return;
-        }
-
-        let x = imgs[0];
-        if(x.tags != "video") {
-            let embed = H.embFromImg(x, args[2]);
-            embed?.setColor(color)?.setAuthor(args[1] == 'furry' ? 'furry.booru' : x.base.split('//')[1].split('.').slice(0, -1).join('.'), "https://cdn.discordapp.com/attachments/752238790323732494/833855293405265950/3gG6lQMl.png", x.base);
-            if(ret)
-                return embed;
-            nmsg.edit({embeds: [embed]}).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
-        }
-        else if(ret)
-            return x.link;
-        else {
-            nmsg.edit(x.link).then(mmsg => H.newPostReact(mmsg, r => H.booru(msg, args, bot, r)));
-            await nmsg.suppressEmbeds(true);
-        }
+        new ImageBoardEmbedHandler(await ctx.reply({ embeds: [ctx.emb('Searching', { color })], fetchReply: true }), async () => (await fromBooru(ctx.args[0], ctx.args[1]))[0], img => {
+            let embed = new SafeEmbed().setAuthor(ctx.args[0] == 'furry' ? 'furry.booru' : img.base.split('//')[1].split('.').slice(0, -1).join('.'), "https://cdn.discordapp.com/attachments/752238790323732494/833855293405265950/3gG6lQMl.png", img.base)
+                        .setColor(color).setURL(img.page).setImage(img.link).setTitle(!ctx.args[1] ? 'random' : ctx.args[1])
+                        .setFooter(`ID: ${img.id}, Score: ${img.score}, Rating: ${img.rating}, Artist: ${img.artist}, Posted: ${img.posted}\nTags: ` + img.tags);
+            img.comments.length && embed.addField(`${img.comments[0].name}:`, img.comments[0].comment);
+            let comb = new SafeEmbed().setTitle("Comments").setColor(color);
+            img.comments.forEach(com => comb.addField(`${com.score}👍  ${com.name}:`, com.comment));
+            return [img.tags == 'video' ? img.link : embed, ...comb.populateEmbeds(10)];
+        }, color);
     }
 
-    @aliases('rule34')
-    @register('Rule 34 - obrazki kotków na wyciągnięcie ręki', '`$pr34 {wyszukanie}` - zobacz sam')
-    static async r34(msg: c.m, args: c.a, bot: c.b, ret = false) {
-        args = bot.newArgs(msg, {freeargs: 1});
-        msg.content = `${bot.db.Data?.[msg?.guild?.id]?.prefix || '.'}b r34 ${args[1]}`;
-        H.booru(msg, args, bot, ret);
-    }
-
-    @aliases('nhentai')
-    @register('Doujiny na wyciągnięcie ręki!', '`$pnh {tagi | numerek | URL}` - wyszukuje specyficzny doujin\n`$pnh` - losowy doujin')
-    static async nh(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 1);
-
-        let doujin = (args[1]) 
-        ? (/^[0-9]+$/.test(args[1])) 
-            ? await fromNH("https://nhentai.net/g/" + args[1]) 
-            : (/^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/.test(args[1])) 
-                ? await fromNH(args[1])
-                : await fromNH(null, args[1])
+    @aliases('nh')
+    @register('you know what this is', '', { free: 0 })
+    @options({ type: 'STRING', name: 'search', description: 'either a link, the famous number, or a search bar query'})
+    static async nhentai(ctx: Context) {
+        const query = ctx.options.get('search') as string;
+        const color = 0xf40e29;
+        let doujin = (query) 
+        ? (/^[0-9]+$/.test(query)) 
+            ? await fromNH("https://nhentai.net/g/" + query) 
+            : (Utils.regexes.url.test(query)) 
+                ? await fromNH(query)
+                : await fromNH(null, query)
         : await fromNH();
        
         if(!doujin)
-            throw new LoggedError(msg.channel, `Nie znaleziono takiego doujina!`, 0xf40e29);
+            return await ctx.reply({ embeds: [ctx.emb("No results", { color })] });
 
-        let pages = [new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tagi: ", doujin.tags).setColor("#f40e29").setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png")];
+        let pages = [new SafeEmbed().setImage(doujin.thumb).setTitle(doujin.name).setURL(doujin.link).addField("Tags: ", doujin.tags).setColor(color).setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png")];
         for(let i = 1; i < doujin.maxPage; i++)
             pages.push(new SafeEmbed().setTitle(doujin.name).setURL(doujin.link + i).setColor(0xf40e29).setAuthor("nhentai", "https://i.imgur.com/D7ryKWh.png").setImage(
                 `https://i.nhentai.net/galleries/${doujin.thumb.split("/").slice(4, -1).join("/")}/${i}.${doujin.format}`
             ));
         
-        await Utils.createPageSelector(msg.channel as TextChannel, pages);
-    }
-
-    @deprecated
-    @aliases('pornhub')
-    @register('Wyszukiwarka PornHuba', '`$pph {wyszukanie} | (opcjonalnie){ilość wyników max. 5}` - zobacz sam')
-    static async ph(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 1);
-
-        if(args[1])
-        {
-            let gay = args[1].includes('gay');
-            let prn = (args[2]) ? await fromPH(gay, args[1], args[2]) : await fromPH(gay, args[1]);
-            
-            for (let x of prn)
-            {
-                let embed = new SafeEmbed().setColor("#FFA500");
-                embed.setImage(x.thumb).setTitle(x.title).setURL(x.link).setFooter(`Długość: ${x.duration}`).setAuthor(`PornHub${gay ? ' Gay' : ''}`, "https://i.imgur.com/VVEYgqA.jpg",`https://pornhub.com${gay ? '/gayporn' : ''}`);
-                Utils.send(msg.channel, embed);
-            }
-
-            if(prn.length == 0) Utils.send(msg.channel, new SafeEmbed().setColor("#FFA500").setDescription(`**${msg.author.tag}** nie znaleziono!`));
-        }
+        await Utils.createPageSelector(await ctx.reply({ fetchReply: true, embeds: [ctx.emb('Loading', { color })] }), pages);
     }
 }

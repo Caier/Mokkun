@@ -1,105 +1,46 @@
-import * as ztm from '../../util/misc/ztm';
-import fs from 'fs';
-import { register, CmdParams as c, group, extend, permissions, deprecated } from '../../util/cmdUtils';
-import { SafeEmbed } from '../../util/embed/SafeEmbed';
-import { MessageReaction, User, TextChannel, Message } from 'discord.js';
+import { register, CmdParams as c, group, extend, permissions, deprecated, options, autocomplete } from '../../util/commands/cmdUtils';
+import { MessageActionRow, MessageButton } from 'discord.js';
 import Utils from '../../util/utils';
-import { SilentError } from '../../util/errors/errors';
-import { SIPResponse } from '../../util/interfaces/ztm';
-import files from '../../util/misc/files';
-
-const veh = JSON.parse(fs.readFileSync(files.pojazdy).toString());
-
-function genEstEmb(data: SIPResponse): SafeEmbed {
-    if(!data) return;
-    for (let i of data.estimates) {
-        i.routeId = i.routeId.toString();
-        if(['4', '8'].includes(i.routeId[0]) && i.routeId.length >= 2) 
-            i.routeId = ((i.routeId[0] === '4') ? 'N' : 'T') + i.routeId.slice((i.routeId[1] === '0') ? 2 : 1);
-        mainl:
-        for (let z in veh)
-            for (let x in veh[z])
-                if (veh[z][x].numbers.includes(i.vehId)) {
-                    i.vehId = (veh[z][x].type != "") ? `${veh[z][x].type} - ${veh[z][x].model} [${i.vehId}]` : `${veh[z][x].model} [${i.vehId}]`;
-                    break mainl;
-                }
-    }
-    return new SafeEmbed().setColor(13632027)
-    .setAuthor(`${data.stopName} ${data.stopNumer} (id: ${data.numerTras})`)
-    .setDescription('\u200b')
-    .addFields(!data.estimates.length ? [{name: '\u200b', value: "brak odjazdów w przeciągu 30 min."}]
-    : data.estimates.map(i => ({name: `**${i.routeId} ${i.headsign}**`, value: `${i.vehId}\n**${i.relativeTime > 0 ? `za ${i.relativeTime} min. **[${i.estTime}]` : '>>>>**'}`})));
-}
+import Context from '../../util/commands/Context';
+import ProviderResolver from '../../util/transit/ProviderResolver';
 
 @group('Komunikacyjne')
 export default class {
-    @register('szacowane czasy odjazdy dla danego przystanku', '`$pztm {skrócona nazwa przystanku np. \'pias3\' (Piastowska 3) lub ID przystanku}`')
-    static async ztm(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.newArgs(msg, {freeargs: 1});
-
-        let send = (cont: any, ID: string|number) =>
-            Utils.send(msg.channel, cont).then(async nmsg => {
-                await nmsg.react('🔄');
-                let coll = nmsg.createReactionCollector({filter: (react: MessageReaction, user: User) => !user.bot, time: 86400000});
-                coll.on('collect', async (react, user) => {
-                    if(nmsg.channel instanceof TextChannel) react.users.remove(user.id);
-                    nmsg.edit({ embeds: [genEstEmb(await ztm.getSIP(ID))] });
-                })
-            });
-
-        if(/^\d+$/.test(args[1]))
-            send(genEstEmb(await ztm.getSIP(args[1])), args[1]);
-        else if(args[1]) {
-            let result = await ztm.getShort(args[1]).catch(err => {
-                Utils.send(msg.channel, bot.emb('Wyszukanie nie spełnia wymogów', 13632027, true).setDescription('Wyszukanie musi składać się z min. 3 znaków. \nPrzykłady:\n`pomo` - wyszuka wszystki przystanki, które zaczynają się od, lub zawierają w sobie "pomo"\n\n`oli1` lub `oli01` lub `oli 1` lub `oli 01` - tak jak poprzednio, dodatkowo odfiltruje przystanki których numer jest inny niż 1\n\n`dwo gł` lub `d g` lub `d g 4` lub `d g4`- wyszuka wszystkie przystanki, których kolejne słowa w nazwie zaczynają się od podanych liter rozdzielonych spacją'));
-                throw new SilentError(err);
-            });
-            if(result.length == 0) {
-                Utils.send(msg.channel, bot.emb('Nie znaleziono', 13632027, true));
-                return;
-            }
-            else if(result.length == 1)
-                send(genEstEmb(await result[0].delay()), result[0].stopId);
-            else {
-                let prz = "";
-                for(let x = 0; x < result.length; x++)
-                    prz += `${x}. ${result[x].stopDesc} ${result[x].stopCode}\n`;
-                let embed = new bot.RichEmbed().setColor(13632027).setDescription(`Znaleziono więcej niż jeden pasujący przystanek. Wybierz jeden odpisując numer lub \"stop\" aby zakończyc.\n\n${prz}`);
-                
-                Utils.send(msg.channel, embed).then(async nmsg => {
-                    let coll = nmsg.channel.createMessageCollector({ filter: (rmsg: Message) => rmsg.author.id == msg.author.id, time: Utils.parseTimeStrToMilis('2m')});
-                    let remsg: Message;
-                    coll.on('collect', async rmsg => {
-                        remsg = rmsg;
-                        if(!isNaN(+rmsg.content) && +rmsg.content >= 0 && +rmsg.content < result.length) {
-                            send(genEstEmb(await result[+rmsg.content].delay()), result[+rmsg.content].stopId);
-                            coll.stop();
-                        }
-                        else if(rmsg.content == 'stop')
-                            coll.stop();
-                    });
-                    coll.on('end', () => {
-                        remsg?.delete();
-                        nmsg.delete();
-                    });
-                });
-            } 
-        }
-        else
-            bot.sendHelp(msg, 'ztm');
+    @register('szacowane czasy odjazdy dla danego przystanku', '', { free: 0, splitter: '|' })
+    @options({ type: 'STRING', name: 'przewoźnik', description: 'szukaj wśród przystanków tego przewoźnika', choices: [...ProviderResolver.providers.keys()].map(p => ({ name: p, value: p })), required: true },
+             { type: 'STRING', name: 'przystanek', description: 'ID przystanku', required: true, autocomplete: true })
+    @autocomplete(async int => {
+        const provider = ProviderResolver.providers.get(int.options.getString('przewoźnik'));
+        if(!provider)
+            return [];
+        return (await provider.queryStations(int.options.getString('przystanek') ?? '')).slice(0, 25).map(s => ({ name: `${s.stopName}${s.stopCode ? ' ' + s.stopCode : ''}`, value: ''+s.stopId }));
+    })
+    static async ztm(ctx: Context) {
+        await ctx.deferReply();
+        const provider = ProviderResolver.providers.get(ctx.options.get('przewoźnik'));
+        const embed = async () => provider.departuresToEmbed(await provider.getDepartures(provider.stops.find(s => s.stopId == ctx.options.get('przystanek'))));
+        const msg = await ctx.followUp({ embeds: [await embed()], fetchReply: true, components: [new MessageActionRow().addComponents([new MessageButton().setCustomId('o').setEmoji('🔄').setStyle('SECONDARY')])] });
+        let coll = msg.createMessageComponentCollector({ idle: Utils.parseTimeStrToMilis('2h') });
+        coll.on('collect', async int => {
+            setTimeout(() => int.deferUpdate().catch(() => {}), 2700);
+            await msg.edit({ embeds: [await embed()] });
+            int.deferUpdate().catch(() => {});
+        }).on('end', () => {
+            msg.edit({ components: [] }).catch(()=>{});
+        }).on('error', err => ctx.handleError(err));
     }
 
     @permissions('MANAGE_CHANNELS')
-    @register('subskrybuje sytuację komunikacyjną ZTM', '`$pztmsub`')
-    static ztmsub(msg: c.m, args: c.a, bot: c.b) {
-        let sub = (msg.channel.type == 'DM') ? msg.author.id : msg.channel.id;
-        let type = (msg.channel.type == 'DM') ? "users" : "channels";
-        if((bot.db.get(`System.newsSubs.${type}`) || []).includes(sub)) {
-            bot.db.save(`System.newsSubs.${type}`, bot.db.System.newsSubs[type].filter((x: string) => x != sub));
-            Utils.send(msg.channel, bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
+    @register('subskrybuje sytuację komunikacyjną ZTM', '')
+    static async ztmsub(ctx: Context) {
+        let sub = (ctx.channel.type == 'DM') ? ctx.user.id : ctx.channel.id;
+        let type = (ctx.channel.type == 'DM') ? "users" : "channels";
+        if((ctx.bot.db.get(`System.newsSubs.${type}`) || []).includes(sub)) {
+            ctx.bot.db.save(`System.newsSubs.${type}`, ctx.bot.db.System.newsSubs[type].filter((x: string) => x != sub));
+            await ctx.reply({ embeds: [ctx.emb("Ten kanał został usunięty z listy subskrybentów", { color: 13632027 })] });
         } else {
-            bot.db.save(`System.newsSubs.${type}`, (bot.db.get(`System.newsSubs.${type}`) || []).concat(sub));
-            Utils.send(msg.channel, bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
+            ctx.bot.db.save(`System.newsSubs.${type}`, (ctx.bot.db.get(`System.newsSubs.${type}`) || []).concat(sub));
+            await ctx.reply({ embeds: [ctx.emb("Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM", { color: 13632027 })] });
         }
     }
 }

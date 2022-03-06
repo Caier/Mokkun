@@ -1,4 +1,5 @@
 import { Message, TextChannel } from "discord.js";
+import Context from "../../util/commands/Context";
 import { SilentError, LoggedError } from "../../util/errors/errors";
 import Utils from "../../util/utils";
 import BaseEventHandler, { Event } from "../BaseEventHandler";
@@ -6,6 +7,10 @@ import BaseEventHandler, { Event } from "../BaseEventHandler";
 @Event('messageCreate')
 export default class extends BaseEventHandler {
     async onevent(msg: Message) {
+        if(msg.channel.partial)
+            ///@ts-ignore
+            msg.channel = await msg.channel.fetch(true);
+
         let prefix = msg.guild && this.bot.db.Data?.[msg.guild.id]?.prefix || '.';
 
         if(msg.author.bot) return;
@@ -57,7 +62,7 @@ export default class extends BaseEventHandler {
                 else if(cmd.subcommandGroup)
                     await this.executeCommand(msg, args.slice(1), cmd.subcommands, helpPath.push(cmd.name) && helpPath);
                 else 
-                    await cmd.execute(msg, args, this.bot);
+                    await cmd.execute(new Context(msg, cmd, this.bot, msg.guild && this.bot.db.Data?.[msg.guild.id]?.prefix || '.'));
             }
             else if(helpPath.length) {
                 this.bot.sendHelp(msg, helpPath);
@@ -66,8 +71,9 @@ export default class extends BaseEventHandler {
         catch(err) {
             if(err instanceof SilentError || err instanceof LoggedError)
                 return;
-            console.error(`Error while executing command ${args[0]}: ${(err as Error).stack}`);
-            Utils.send(msg.channel, this.bot.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${(err as Error).message}`));
+            if(process.env.DEBUG)
+                console.log(err);
+            msg.reply({ allowedMentions: { repliedUser: false }, embeds: [this.bot.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err}`)] });
         }
     }
 }

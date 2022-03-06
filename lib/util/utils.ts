@@ -4,6 +4,10 @@ import path from 'path';
 import { SafeEmbed } from './embed/SafeEmbed';
 
 namespace Utils {
+    export const regexes = {
+        url: /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/
+    }
+
     export async function send(channel: TextBasedChannel, content?: string | MessageEmbed, options?: MessageOptions & { split?: boolean, code?: string }) {
         if(content instanceof MessageEmbed)
             return await channel.send({ ...options, embeds: [content] });
@@ -58,34 +62,6 @@ namespace Utils {
     }
 
     /**
-     * Fetches messages from a Discord TextChannel
-     * @param msg A message object
-     * @param much How many messages should be fetched
-     * @param user Whose messages should be fetched
-     * @param before Which message should be the starting point for fetching
-     * @returns A collection of messages keyed by their ids
-     */
-    export async function fetchMsgs(msg: Message, much: number, user: string, before: string) {
-        let msgs = await msg.channel.messages.fetch((before) ? {limit: 100, before: before} : {limit: 100});
-        if(msgs.size == 0) return msgs;
-        let fmsg = msgs?.last()?.id;
-        if(user) msgs = msgs.filter(e => e.author.id == user);
-        if(msgs.size != 0) fmsg = msgs?.last()?.id;
-        while(msgs.size < much)
-        {
-            let temp = await msg.channel.messages.fetch({limit: 100, before: fmsg});
-            if(temp.size != 0) fmsg = temp?.last()?.id;
-            else break;
-            if(user) temp = temp.filter(e => e.author.id == user);
-            msgs = msgs.concat(temp);
-            if(temp.size != 0) fmsg = temp?.last()?.id;
-        }
-        let cnt = 0;
-        msgs = msgs.filter(() => {cnt++; return cnt <= much})
-        return msgs;
-    }
-
-    /**
      * Scans a directory recursively
      * @param dir Path to the directory
      * @returns Array of exploded directory entries
@@ -129,10 +105,11 @@ namespace Utils {
     * @param opts.collOpts Options of the MessageComponentCollector
     * @returns [collector, message to which collector is attached]
     */
-    export async function createPageSelector(channel: TextChannel | DMChannel, pages: MessageEmbed[] | Promise<MessageEmbed>[] | (() => Promise<MessageEmbed>)[],
-    opts?: {triggers?: string[], emojis?: string[], toEdit?: Message, disableMenu?: boolean, collOpts?: MessageComponentCollectorOptions<MessageComponentInteraction>}) {
-        let cache: MessageEmbed[] = [];
+    export async function createPageSelector(ctx: TextChannel | DMChannel | Message, pages: (MessageEmbed | string)[] | Promise<(MessageEmbed | string)>[] | (() => Promise<(MessageEmbed | string)>)[],
+    opts?: {triggers?: string[], emojis?: string[], disableMenu?: boolean, collOpts?: MessageComponentCollectorOptions<MessageComponentInteraction>}) {
+        let cache: (MessageEmbed | string)[] = [];
         const getPage: (arg0: number) => Promise<MessageEmbed> = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await (pages[i] as any)() || await pages[i]);
+        const decide = (c: string | MessageEmbed) => ({ embeds: typeof c == 'string' ? [] : [c], content: typeof c == 'string' ? c : null });
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
         let components = [new MessageActionRow().addComponents(emojis.map((e, i) => e && new MessageButton().setCustomId(''+i).setEmoji(e).setStyle("SECONDARY").setDisabled(i < 2)).filter(Boolean))];
         if(!opts?.disableMenu) {
@@ -140,11 +117,11 @@ namespace Utils {
             components.unshift(new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId('menu').setPlaceholder(`Strona 1/${pages.length}`)
                 .setOptions(Array(Math.floor(pages.length / perOption)).fill(0).map((_, i) => ({ label: 'Strona '+ ((i * perOption) + 1), value: ''+ i * perOption })))));
         }
-        let nmsg = opts?.toEdit ? await opts.toEdit.edit({ embeds: [await getPage(0)], components }) : await channel.send({ embeds: [await getPage(0)], components });
+        let nmsg = ctx instanceof Message ? await ctx.edit({ ...decide(await getPage(0)), components }) : await ctx.send({ ...decide(await getPage(0)), components });
         let curPage = 0;
 
         let coll = nmsg.createMessageComponentCollector({ 
-            ...(opts?.collOpts || { time: 600_000 })
+            ...(opts?.collOpts || { idle: 600_000 })
         }).on('collect', async int => {
             if(opts?.triggers && !opts.triggers.includes(int.user.id)) {
                 await int.reply({ embeds: [new SafeEmbed().setAuthor('Nie jesteś użytkownikiem, który może kontrolować tą wiadomość.').setColor("WHITE")], ephemeral: true })
@@ -160,7 +137,7 @@ namespace Utils {
                         case 0: case 1: curPage == 0 && c.setDisabled(true); break;
                         case 2: case 3: curPage == pages.length - 1 && c.setDisabled(true);
                     }
-                await nmsg.edit({ embeds: [await getPage(page)], components });
+                await nmsg.edit({ ...decide(await getPage(page)), components });
             };
 
             components.forEach(row => row.components.forEach(c => c.setDisabled(true)));
@@ -177,7 +154,11 @@ namespace Utils {
                 await edit(curPage = +int.values[0]);
         }).on('end', async () => {
             components.forEach(row => row.components.forEach(c => c.setDisabled(true)));
-            await nmsg.edit({ components });
+            await nmsg.edit({ components }).catch(()=>{});
+        }).on('error', err => {
+            if(process.env.DEBUG)
+                console.error(err);
+            nmsg.edit({ embeds: [new SafeEmbed().setAuthor('Caught an exception in the page selector:').setDescription(err.toString())] }).catch(()=>{});
         });
 
         return [coll, nmsg];
@@ -211,27 +192,38 @@ namespace Utils {
      * Creates a Yes/No confirmation box
      * @param channel Channel in which the confirmation box should be sent
      * @param question The content of the confirmation box
-     * @param who The user who needs to respond
-     * @param color Color of the embed
-     * @param emojis Emojis which are going to be used as reactions
-     * @returns `true` if user answered yes, `false` if user answered no
+     * @param opts Additional options
+     * @param opts.for The user who needs to respond
+     * @param opts.color Color of the embed
+     * @param opts.time Time to answer in milliseconds
+     * @param opts.buttons What should be presented in the buttons
+     * @returns `true` if user answered yes, `false` if user answered no or timed out
      */
-    export function confirmBox(channel: TextChannel, question: string, who: User, color = '#bc0000' as ColorResolvable, emojis = ['✅', '❌']) : Promise<boolean> {
-        return new Promise(async res => {
-            let c = false;
-            let msg = await send(channel, new SafeEmbed({author: {name: 'Uwaga!'}, description: question, color: color, footer: {text: 'Zdecyduj, używając poniższych reakcji'}}));
-            for(let e of emojis)
-                await msg.react(e);
-            let coll = msg.createReactionCollector({ filter: (react: MessageReaction, user: User) => !user.bot && user.id == who.id && emojis.includes(react.emoji.name), time: 120000 });
-            coll.on('collect', react => {
-                c = true;
-                res(react.emoji.name == emojis[0]);
-                coll.stop();
-            });
-            coll.on('end', () => {
-                msg.delete();
-                if(!c) {
-                    send(channel, new SafeEmbed({color: color, author: {name: "Użytkownik nie wybrał żadnej z opcji."}}));
+    export function confirmBox(ctx: TextChannel | DMChannel | Message, question: string | MessageEmbed, opts?: { for?: User, color?: ColorResolvable, time?: number, buttons?: [string, string] | [MessageButton, MessageButton] }) {
+        return new Promise<boolean>(async res => {
+            const components = [new MessageActionRow().addComponents(opts?.buttons?.[0] instanceof MessageButton ? opts.buttons as MessageButton[] : [
+                new MessageButton().setCustomId('y').setStyle('SUCCESS').setLabel(opts?.buttons?.[0] as string ?? 'Confirm'),
+                new MessageButton().setCustomId('n').setStyle('DANGER').setLabel(opts?.buttons?.[1] as string ?? 'Cancel')
+            ])];
+            const ctn = { components, embeds: [question instanceof MessageEmbed ? question : 
+                new SafeEmbed().setAuthor('Attention!').addField('Decides:', opts?.for?.tag ?? 'Anyone').setDescription(question).setColor(opts?.color ?? '#bc0000').setFooter('Decide, using buttons below')
+            ]};
+            const msg = ctx instanceof Message ? await ctx.edit(ctn) : await ctx.send(ctn);
+            
+            const coll = msg.createMessageComponentCollector({ time: opts?.time ?? 120_000, componentType: 'BUTTON' }).on('collect', async int => {
+                if(opts?.for && int.user.id != opts.for.id) {
+                    int.reply({ ephemeral: true, content: 'That question isn\'t for you to decide' });
+                    return;
+                }
+
+                const answer = int.customId == components[0].components[0].customId;
+                res(answer);
+                coll.stop('answered');
+            }).on('end', (_, reason) => {
+                if(reason == 'answered' && !(ctx instanceof Message))
+                    msg.delete().catch(()=>{});
+                else if(reason != 'answered') {
+                    msg.edit({ components: [], embeds: [msg.embeds[0].setFooter({text: 'No option has been chosen.'})] }).catch(()=>{});
                     res(false);
                 }
             });
