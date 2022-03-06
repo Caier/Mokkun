@@ -37,6 +37,7 @@ export default class {
             Utils.send(msg.channel, bot.embgen(color, `ERR: ${body.status_txt}`));
     }
 
+    @deprecated
     @aliases('h', '?')
     @register('pomoc', '`$phelp {nazwa komendy}`')
     static help(msg: c.m, args: c.a, bot: c.b) {

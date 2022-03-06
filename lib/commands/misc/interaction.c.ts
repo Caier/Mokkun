@@ -12,7 +12,7 @@ function choosePhrase(choice: string, from: [number, string][]) {
 @group('Interakcja')
 export default class {
     @aliases('select', 'sel', 'ch')
-    @register('chooses one of the provided choices', '', { free: 1 })
+    @register('chooses one of the provided choices', '', { free: 0 })
     @options({ type: 'STRING', name: 'options', description: 'the options to choose from separated by the | character', required: true })
     static async choose(ctx: Context) {
         const choices = (ctx.args[0] as string).split('|').map(c => c.trim());
