@@ -1,31 +1,26 @@
-import { aliases, register, CmdParams as c, group, deprecated } from "../../util/cmdUtils";
+import { aliases, register, CmdParams as c, group, deprecated, permissions, options } from "../../util/commands/cmdUtils";
 import ax from 'axios';
 import fs from 'fs';
 import path from 'path';
 import files from "../../util/misc/files";
-import { ICommand } from "../../util/interfaces/ICommand";
+import { ICommand } from "../../util/commands/ICommand";
 import Utils from "../../util/utils";
+import Context from "../../util/commands/Context";
+import { SafeEmbed } from "../../util/embed/SafeEmbed";
 
 @group('Różne')
 export default class {
     @aliases('p')
-    @register('gra w ping ponga', '`$pping` - REEEE')
-    static ping(msg: c.m, args: c.a, bot: c.b) {
-        let wiad = (Math.floor(Math.random()*500) == 232) ? `nou` : `**${msg.author.tag}** :ping_pong: ${bot.ws.ping}ms`;
-        Utils.send(msg.channel, new bot.RichEmbed().setColor("#1ece00").setDescription(wiad));
+    @register('the bot\'s ping to the gateway', '')
+    static async ping(ctx: Context) {
+        await ctx.reply({ embeds: [new SafeEmbed().setColor("#1ece00").setDescription((Math.floor(Math.random()*500) == 232) ? `nou` : `**${ctx.user.tag}** :ping_pong: ${ctx.bot.ws.ping}ms`)] });
     }
 
-    @register('Tworzy hiperłącze', '`$plink hide | {nazwa} | {link}` - tworzy hiperłącze nie pokazując jego twórcy\n`$plink {nazwa} | {link}` - to samo tylko z twórcą')
-    static link(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 2);
-        let embed = new bot.RichEmbed().setColor(Math.floor(Math.random()*16777215));
-        if(args[1] == 'hide')
-            embed.setTitle(args[2]).setURL(args[3]);
-        else if(args[1])
-            embed.setTitle(args[1]).setURL(args[2]).setFooter(msg.author.tag);
-        else return;
-        msg.delete();
-        Utils.send(msg.channel, embed);
+    @register('creates a pretty hyperlink', '', { free: 2 })
+    @options({ type: 'STRING', name: 'url', description: 'the url of the link', required: true },
+             { type: 'STRING', name: 'title', description: 'the title od the link', required: true })
+    static async link(ctx: Context) {
+        await ctx.reply({ embeds: [new SafeEmbed().setColor(Utils.rand(0, 0xFFFFFF)).setTitle(ctx.args[1]).setURL(ctx.args[0])] });
     }
 
     @deprecated
@@ -105,27 +100,5 @@ export default class {
         }
         else
             Utils.send(msg.channel, new bot.RichEmbed().setColor(color).setAuthor('Ta komenda/grupa komend nie istnieje.'));
-    }
-
-    @aliases('sp')
-    @register('wysyła załączniki jako spoiler', '`$pspoiler` - w załączniku dołącz plik (max. 8MB)')
-    static async spoiler(msg: c.m, args: c.a, bot: c.b) {
-        let attch = [...msg.attachments.values()];
-
-        if(attch[0] && attch[0].size > 8000000) Utils.send(msg.channel, bot.emb("**Załącznik max. 8MB**"));
-        if(!attch[0] || attch[0].size > 8000000) return;
-        
-        let fname = `SPOILER_${attch[0].url.slice(attch[0].url.lastIndexOf("/") + 1)}`;
-        let fpath = path.join(files.temp, fname);
-        let fplace = fs.createWriteStream(fpath);
-
-        msg.delete();
-
-        (await ax.get(attch[0].url, {responseType:'stream'})).data.on('data', (data: any) => fplace.write(data))
-        .on('end', () => fplace.close());
-        fplace.on("close", async () => {
-            await Utils.send(msg.channel, null, {files: [fpath]});
-            fs.unlinkSync(fpath);
-        });
     }
 }

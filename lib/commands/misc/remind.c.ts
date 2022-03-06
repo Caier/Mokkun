@@ -1,6 +1,7 @@
-import { group, aliases, register, CmdParams as c, subcommandGroup, extend } from "../../util/cmdUtils";
+import { MessageActionRow, MessageButton } from "discord.js";
+import { group, aliases, register, CmdParams as c, subcommandGroup, extend, options, autocomplete } from "../../util/commands/cmdUtils";
+import Context from "../../util/commands/Context";
 import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import { LoggedError } from "../../util/errors/errors";
 import { IRemind } from "../../util/interfaces/IRemind";
 import Utils from "../../util/utils";
 
@@ -11,83 +12,91 @@ export default class H {};
 
 @subcommandGroup('komendy związane z przypomnieniami', H)
 @aliases('r')
-@extend((m: c.m, a: c.a, b: c.b) => [m, a, b, b.db.System?.reminders || []])
+@extend(ctx => [ctx, ctx.bot.db.System?.reminders || []])
 class remind {
     @aliases('a')
-    @register('tworzy przypomnienie na bieżącym kanale', '`$c {za ile? przykład: 1M30d24h60m} {treść przypomnienia}`')
-    static add(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
-        args = bot.newArgs(msg, {freeargs: 3}).slice(1);
-        if(!args[1] || !args[2]) {
-            bot.sendHelp(msg, ['remind', 'add']);
-            return;
-        }
-
-        if(reminds.filter(r => msg.guild?.channels?.resolve(r.createdIn) || bot.channels?.resolve(r.createdIn)).length > 50)
-            throw new LoggedError(msg.channel, "Przekroczono limit przypomnień dla tego " + (msg.guild ? 'serwera' : 'użytkownika'));
-
-        let boomTime = Utils.parseTimeStrToMilis(args[1]);
+    @register('created a reminder on the current channel', '', { free: 1 })
+    @options({ type: 'STRING', name: 'time', description: 'remind me in: ex: 1M30d24h60m', required: true },
+             { type: 'STRING', name: 'content', description: 'content of the reminder', required: true })
+    static async add(ctx: Context, reminds: IRemind[]) {
+        const content = ctx.options.get('content') as string;
+        let guildChs = await ctx.guild?.channels?.fetch();
+        if(reminds.filter(r => guildChs ? guildChs.has(r.createdIn) : (r.createdIn == ctx.user.dmChannel.id)).length >= 50)
+            return await ctx.reply({ embeds: [ctx.emb('You cannot have more than 50 reminders per guild / dmChannel', { color: remCol })] });
+        
+        let boomTime = Utils.parseTimeStrToMilis(ctx.options.get('time'));
         if(boomTime < 1)
-            throw new LoggedError(msg.channel, 'Niepoprawny czas przypomnienia');
+            return await ctx.reply({ embeds: [ctx.emb('Invalid time', { color: remCol })] });
         boomTime += Date.now();
 
-        let id = ((+('' + Date.now()).slice(7)).toString(36) + Math.random().toString(36).substr(2, 3));
+        const id = ((+('' + Date.now()).slice(7)).toString(36) + Math.random().toString(36).slice(2, 5));
         reminds.push({
             id,
-            author: msg.author.id,
-            authorLit: msg.author.tag,
+            author: ctx.user.id,
+            authorLit: ctx.user.tag,
             createdAt: Date.now(),
-            createdIn: msg.channel.id,
-            content: args[2],
+            createdIn: ctx.channel.id,
+            content,
             boomTime
         });
-        bot.db.save('System.reminders', reminds);
+        ctx.bot.db.save('System.reminders', reminds);
 
-        Utils.send(msg.channel, new SafeEmbed().setColor(remCol).setAuthor('Ustawiono przypomnienie').setDescription(args[2])
-                            .addField('Kiedy', Utils.genDateString(new Date(boomTime), '%D.%M.%Y %h:%m'), true)
-                            .addField('Od', msg.author.tag, true).setFooter('id: ' + id)
-        ).then(async nmsg => {
-            await nmsg.react('❌');
-            nmsg.createReactionCollector({ filter: (r, u) => r.emoji.name == '❌' && u.id == msg.author.id, time: Utils.parseTimeStrToMilis('2m')})
-                .on('collect', () => {
-                    bot.db.save('System.reminders', ((bot.db.System.reminders || []) as IRemind[]).filter(r => r.id != id));
-                    nmsg.delete();
-                    Utils.send(msg.channel, new SafeEmbed().setColor(remCol).setAuthor('Anulowano przypomnienie'));
-                })
-                .on('end', () => nmsg.reactions.removeAll().catch(e => {}));
-        });
+        let msg = await ctx.reply({ fetchReply: true, embeds: [new SafeEmbed().setColor(remCol).setAuthor("Reminder's been set").setDescription(content)
+                                                                .addField('When', `<t:${Math.floor(boomTime/1000)}>`, true)
+                                                                .addField('From', ctx.user.toString(), true).setFooter('id: ' + id)],
+                         components: [new MessageActionRow().setComponents([new MessageButton().setCustomId('x').setLabel('Nevermind').setStyle('DANGER')])]});
+        
+        msg.createMessageComponentCollector({ time: Math.min(120_000, boomTime - Date.now()), componentType: 'BUTTON', filter: int => int.user.id == ctx.user.id || int.deferUpdate() && false })
+        .on('collect', () => {
+            ctx.bot.db.save('System.reminders', ((ctx.bot.db.System.reminders || []) as IRemind[]).filter(r => r.id != id));
+            ctx.editReply({ embeds: [ctx.emb("Reminder's been cancelled", { color: remCol })], components: [] });
+        })
+        .on('end', () => msg.edit({ components: [] }).catch(()=>{}) as any);
     }
 
     @aliases('l')
-    @register('wyświetla wszystkie przypomnienia utworzone na bieżącym kanale', '`$c`')
-    static list(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
-        reminds = reminds.filter(r => msg.guild && [...msg.guild.channels.cache.keys()].includes(r.createdIn) || msg.channel.id == r.createdIn);
-        if(!reminds.length) 
-            throw new LoggedError(msg.channel, 'Brak przypomnień', remCol);
+    @register('shows all reminders created on this guild/dmChannel', '')
+    static async list(ctx: Context, reminds: IRemind[]) {
+        let guildChs = await ctx.guild?.channels?.fetch();
+        reminds = reminds.filter(r => guildChs && guildChs.has(r.createdIn) || ctx.channel.id == r.createdIn);
+        if(!reminds.length)
+            return await ctx.reply({ embeds: [ctx.emb('No reminders found', { color: remCol })] });
             
-        let emb = new SafeEmbed().setColor(remCol).setAuthor('Lista przypomnień').addFields(
-            reminds.map(r => ({name: r.content, value: `**Od:** <@${r.author}>\n**Kiedy:** \`${Utils.genDateString(new Date(r.boomTime), '%D.%M.%Y %h:%m')}\`${msg.guild ? `\n**Na:** <#${r.createdIn}>` : ''}\n**id:** \`${r.id}\``, inline: true})));
+        let emb = new SafeEmbed().setColor(remCol).setAuthor('Reminders list').addFields(
+            reminds.map(r => ({name: r.content, value: `**From:** <@${r.author}>\n**When:** <t:${Math.floor(+r.boomTime/1000)}>${ctx.guild ? `\n**In:** <#${r.createdIn}>` : ''}\n**id:** \`${r.id}\``, inline: true})));
         if(emb.fields.length > 9)
-            Utils.createPageSelector(msg.channel as any, emb.populateEmbeds(9), {triggers: [msg.author.id]});
+            await Utils.createPageSelector(await ctx.deferReply({ fetchReply: true }), emb.populateEmbeds(9));
         else
-            Utils.send(msg.channel, emb);
+            await ctx.reply({ embeds: [emb] });
     }
 
     @aliases('r', 'rem')
-    @register('usuwa ustawione przypomnienia po id', '`$c {id przypomnienia}`')
-    static remove(msg: c.m, args: c.a, bot: c.b, reminds: IRemind[]) {
-        if(!args[1]) {
-            bot.sendHelp(msg, ['remind', 'remove']);
-            return;
+    @register('removes reminders (you can remove other\'s reminders only if you have the MANAGE_MESSAGES permission', '')
+    @options({ type: 'STRING', name: 'id', description: 'ids of the reminders you want to remove separated by commas', required: true, autocomplete: true })
+    @autocomplete((int, bot) => {
+        const idTyped = int.options.getString('id').split(',').map(i => i.trim());
+        let availRems = (bot.db.System?.reminders as IRemind[])?.filter(r => int.guild?.channels.cache.get(r.createdIn) || r.createdIn == int.channel.id);
+        availRems = availRems.filter(r => !idTyped.includes(r.id) && (idTyped[idTyped.length - 1]?.length ? r.id.startsWith(idTyped[idTyped.length - 1]) : true));
+        if(int.guild && !(int.member.permissions as any)?.has('MANAGE_MESSAGES'))
+            availRems = availRems.filter(r => r.author == int.user.id);
+        let value = (r: IRemind) => idTyped.slice(0, -1).filter(i => i != '').join(',') + `${idTyped.length > 1 ? ',' : ''}${r.id}`;
+        let resp = availRems.map(r => ({ name: value(r), value: value(r) }));
+        return resp;
+    })
+    static async remove(ctx: Context, reminds: IRemind[]) {
+        let parsedIds = (ctx.options.get('id') as string).split(',').map(i => i.trim()).filter(i => i != '' && i != ' ');
+        let guildChs = await ctx.guild?.channels?.fetch();
+        let availRems = (ctx.bot.db.System?.reminders as IRemind[])?.filter(r => guildChs.get(r.createdIn) || r.createdIn == ctx.channel.id);
+        if(ctx.guild && !ctx.member.permissions.has('MANAGE_MESSAGES'))
+            availRems = availRems.filter(r => r.author == ctx.user.id);
+        let successIds = [];
+        for(let id of parsedIds) {
+            if(!availRems.find(r => r.id == id))
+                continue;
+            reminds = reminds.filter(r => r.id != id);
+            successIds.push(id);
         }
-
-        let r = reminds.find(r => r.id == args[1]);
-        if(!r)
-            throw new LoggedError(msg.channel, "Takie przypomnienie nie istnieje", remCol);
-        if(r.author == msg.author.id && ([...msg.guild?.channels.cache.keys()].includes(r.createdIn) || r.createdIn == msg.channel.id)) {
-            bot.db.save('System.reminders', bot.db.System.reminders.filter((r: IRemind) => r.id != args[1]));
-            Utils.send(msg.channel, bot.emb('Usunięto przypomnienie', remCol, true));
-        }
-        else
-            throw new LoggedError(msg.channel, "Możesz usunąć jedynie swoje przypomnienia" + msg.channel.type != 'DM' ?  " z bieżącego serwera" : '', remCol)
+        ctx.bot.db.save('System.reminders', reminds);
+        await ctx.reply({ embeds: [ctx.emb(successIds.length ? `**Deleted reminders with ids:**\n${successIds.join(', ')}` : "Couldn't delete any reminders", { in: "DESC", color: remCol })] });
     }
 }

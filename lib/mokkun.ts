@@ -4,12 +4,15 @@ import path from 'path';
 import Util from './util/utils';
 import { MokkunMusic } from './util/music/MokkunMusic';
 import { SafeEmbed } from './util/embed/SafeEmbed';
-import { ICommand, ICmdGroup } from './util/interfaces/ICommand';
+import { ICommand, ICmdGroup } from './util/commands/ICommand';
 import { Database } from './util/database/Database';
 import { IDatabase } from './util/database/IDatabaseData';
-import { CmdParams as c } from './util/cmdUtils';
+import { CmdParams as c } from './util/commands/cmdUtils';
 import files from './util/misc/files';
 import BaseEventHandler from './events/BaseEventHandler';
+import SlashManager from './util/slash/SlashManager';
+import Context from './util/commands/Context';
+import Task from './util/tasks/Task';
 
 const __mainPath = process.cwd();
 
@@ -23,6 +26,7 @@ export class Mokkun extends Discord.Client {
     private cmdDir = path.join(__dirname, 'commands');
     guildScripts: Collection<string, (m: c.m, a: c.a, b: c.b) => void> = new Collection();
     music = new MokkunMusic(this);
+    slashManager = new SlashManager(this);
     RichEmbed = SafeEmbed;
     sysColor = 0xFFFFFE;
     commands: Collection<string, ICommand>;
@@ -36,7 +40,7 @@ export class Mokkun extends Discord.Client {
     }
 
     private constructor(vars?: {[prop: string]: any}) {
-        super({ intents: Object.values(Intents.FLAGS) }); //politely fuck off
+        super({ intents: Object.values(Intents.FLAGS), partials: ['CHANNEL'] }); //politely fuck off
         this.vars = Object.assign({}, process.env, vars);
         this.ensureVars();
         this.ensureDirs();
@@ -45,8 +49,11 @@ export class Mokkun extends Discord.Client {
         this.loadEvents();
         this.commands = this.loadCommands();
         this.loadGuildScripts();
-        this.start();
-        import('./tasks');
+        this.start().then(async () => {
+            await this.slashManager.register();
+            await import('./tasks');
+            Task.attach(this);
+        });
     }
 
     private ensureVars() {
@@ -94,33 +101,18 @@ export class Mokkun extends Discord.Client {
             this.guildScripts.set(s.slice(0, -3), require(path.join(files.guildScripts, s))));
     }
 
-    private start() {
-        super.login(this.vars.TOKEN);
+    private async start() {
+        await super.login(this.vars.TOKEN);
         this.on("error", err => console.error("Websocket error: " + err.message));
         this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
     }
 
-    getArgs(content: any, prefix: string, splitter?: string, freeargs?: number, arrayExpected?: boolean) {
-        content = content.slice(prefix.length);
-        let args = [];
-        if(splitter) 
-            content = content.split(splitter);
-        args.push(...(splitter ? content[0] : content).split(" ").map((v: string) => v.trim()).filter((v: string) => v != " " && v != ""));
-        if(freeargs)
-            args = [...args.slice(0,freeargs), args.slice(freeargs).join(" ")];
-        if(splitter)
-            args.push(...content.slice(1).map((v: string) => v.trim()));
-        while(arrayExpected && args.some(v => v[0] == '[') && args.some(v => v[v.length-1] == ']')) {
-            let beg = args.findIndex(v => v[0] == '[');
-            let end: number = args.findIndex(v => v[v.length-1] == ']')+1;
-            if(end <= beg) break;
-            args = [...args.slice(0, beg), [...args.slice(beg, end).join("").split(",").map(v => v[0] == '[' && v.slice(1) || v).map(v => v.endsWith(']') && v.slice(0, -1) || v)], ...args.slice(end)];
-        }
-        return args;
+    getArgs(content: any, prefix: string, splitter?: string, freeargs?: number) {
+        return Context.getArgs(content, { prefix, splitter, free: freeargs });
     }
 
-    newArgs(message: Message, options?: {splitter?: string, freeargs?: number, arrayExpected?: boolean}) {
-        return this.getArgs(message.content, this.db.Data?.[message?.guild.id]?.prefix || '.', options?.splitter, options?.freeargs, options?.arrayExpected);
+    newArgs(message: Message, options?: {splitter?: string, freeargs?: number }) {
+        return this.getArgs(message.content, this.db.Data?.[message?.guild.id]?.prefix || '.', options?.splitter, options?.freeargs);
     }
 
     embgen(color: string | number = this.sysColor, content: string, random?: boolean) {
@@ -134,6 +126,8 @@ export class Mokkun extends Discord.Client {
     }
 
     sendHelp(msg: Message, command: string | string[]) {
-        this.commands.get('?').execute(msg, ['?', ...Array.isArray(command) ? command : [command]], this);
+        //this.commands.get('?').execute(msg, ['?', ...Array.isArray(command) ? command : [command]], this);
+        msg.content = `? ${Array.isArray(command) ? command.join(' ') : command}`;
+        this.commands.get('?').execute(new Context(msg, this.commands.get('?'), this, msg.guild && this.db.Data?.[msg.guild.id]?.prefix || '.'));
     }
 }

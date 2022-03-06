@@ -1,7 +1,7 @@
 import { ClientEvents } from "discord.js";
 import { Mokkun } from "../mokkun";
 
-export function Event<K extends keyof ClientEvents>(name: K) {
+export function Event(name: keyof ClientEvents) {
     return function(target: any) {
         return new Proxy(target, {
             construct(target, args) {

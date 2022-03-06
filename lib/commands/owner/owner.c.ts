@@ -1,4 +1,7 @@
-import { group, ownerOnly, register, CmdParams as c } from "../../util/cmdUtils";
+import { group, ownerOnly, register, CmdParams as c, options, subcommandGroup, aliases, notdm } from "../../util/commands/cmdUtils";
+import util from 'util';
+import Context from "../../util/commands/Context";
+import { Formatters, Presence } from "discord.js";
 
 //useful imports for .eval
 import fs from 'fs-extra';
@@ -14,43 +17,48 @@ const decls = Object.keys(imports).reduce((p, c) => p + `var ${c} = imports["${c
 
 @ownerOnly
 @group("BotOwner")
-export default class {
-    @register('ewaluacja wyrażeń', '`$peval {wyrażenie w JS}`')
-    static eval(msg: c.m, args: c.a, bot: c.b) {
-        const print = (cont: any, opts?: any) => Utils.send(msg.channel, cont, opts);
-        let code = msg.content.slice((bot.db.Data?.[msg?.guild?.id]?.prefix || '.').length + this.name.length);
+export default class H {
+    @register('bakes cookies', '', { free: 0 })
+    @options({ type: "STRING", name: 'expression', description: 'nothing to see here', required: true })
+    static async eval(ctx: Context) {
+        await ctx.deferReply();
         try {
-            eval(decls + '\n\n' + code);
+            let resp = await eval(`(async () => { ${decls} ${ctx.args[0]} })`)();
+            await ctx.followUp(Formatters.codeBlock('js', util.inspect(resp, false, 1).slice(0, 1990)));
         } catch(err) {
-            Utils.send(msg.channel, 'Nastąpił błąd podczas ewaluacji wyrażenia:\n\n' + (err instanceof Error ? err.stack.split('\n').slice(0, 5).join('\n') : err), {split: true, code: 'js'});
+            await ctx.followUp(Formatters.codeBlock('js', util.inspect(err, false, 1).slice(0, 1990)));
         }
     }
 
-    @register('zmienia status bota', '`$pstatus {typ aktywności} {status}` - zmienia status (presence) bota')
-    static status(msg: c.m, args: c.a, bot: c.b) {
-        args = bot.getArgs(msg.content, bot.db.Data?.[msg?.guild?.id]?.prefix || '.', "|", 2);
-        let acceptable = ["PLAYING", "STREAMING", "LISTENING", "WATCHING"];
-
-        if(args[1] && args[2])
-        {
-            args[1] = args[1].toUpperCase();
-            if(acceptable.includes(args[1]))
-            {
-                bot.db.save(`System.presence`, {name: args[2], type: args[1]});
-                bot.user.setActivity(args[2], {type: args[1]})
-                Utils.send(msg.channel, bot.embgen(bot.sysColor, "Ustawiono status"));
-            }
-            else Utils.send(msg.channel, bot.embgen(bot.sysColor, `Dostępne typy statusu:\n${acceptable.join("\n")}`));
-        }
-    }
-
-    @register('aktualizuje bota', '`$pupdate`')
-    static async update(msg: c.m, args: c.a, bot: c.b) {
-        Utils.send(msg.channel, bot.emb('**Aktualizowanie... (Obserwuj status)**'));
-        await bot.user.setActivity("Aktualizowanie...", {type: 'PLAYING'});
-        cp.exec('../updMokk.sh', (err, stdout) => {
-            if (err)
-                throw err;
+    @register('updates the bot somehow...', '')
+    static async update(ctx: Context) {
+        await ctx.reply({ embeds: [ctx.emb('**Aktualizowanie... (Obserwuj status)**')] });
+        ctx.bot.user.setActivity("Aktualizowanie...", { type: 'PLAYING' });
+        cp.exec('../updMokk.sh', (err, stdout, stderr) => {
+            if (err || stderr)
+                console.error(err || stderr);
         });
+    }
+}
+
+@subcommandGroup("changes the bot's status and activity", H)
+class presence {
+    @register("changes bot's activity", '', { free: 1 })
+    @aliases('a')
+    @options({ type: 'STRING', name: 'type', description: 'activity type', choices: ['PLAYING', 'WATCHING', 'LISTENING', 'STREAMING', 'COMPETING'].map(s => ({ name: s, value: s })), required: true },
+             { type: 'STRING', name: 'value', description: 'activity value', required: true })
+    static async activity(ctx: Context) {
+        ctx.bot.db.save('System.presence.activity', { name: ctx.args[1], type: ctx.args[0] });
+        ctx.bot.user.setActivity(ctx.args[1], { type: ctx.args[0] });
+        await ctx.reply({ embeds: [ctx.emb('Changed activity')] });
+    }
+
+    @register("changes bot's status", '')
+    @aliases('s')
+    @options({ type: "STRING", name: 'status', description: 'status value', choices: [{ name: 'online', value: 'online' }, { name: 'idle', value: 'idle' }, { name: 'invinsible', value: 'invinsible' }, { name: 'do not disturb', value: 'dnd' }], required: true })
+    static async status(ctx: Context) {
+        ctx.bot.db.save('System.presence.status', ctx.args[0]);
+        ctx.bot.user.setStatus(ctx.args[0]);
+        await ctx.reply({ embeds: [ctx.emb('Changed status')] });
     }
 }

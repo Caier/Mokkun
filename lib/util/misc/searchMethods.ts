@@ -50,7 +50,7 @@ export async function fromBooru(booru: string, tags?: string) {
     }
 
     booru = booru.toLowerCase().trim().replace(/\W/g, '');
-    let r34 = booru == 'r34';
+    let r34 = booru == 'rule34';
     let fur = r34 || booru == 'furry';
     let base = r34 ? 'https://rule34.xxx/' : fur ? `https://190.2.148.183/` : `https://${booru}.booru.org/`;
     
@@ -73,7 +73,7 @@ export async function fromBooru(booru: string, tags?: string) {
     return links.length ? [await getSrc(links[Utils.rand(0, links.length - 1)])] : [];
 }
 
-interface gbRet {
+export interface gbRet {
     base?: string
     page: string
     link: string,
@@ -101,11 +101,11 @@ export async function fromGB(tags?: string, rand = true) {
             async function getComs(body: string, noRq?: boolean) {
                 if(!noRq) body = (await ax.get(body, options)).data;
                 
-                $(".comment-box td:nth-child(2)", body.toString()).each((i,elem) => {
+                $(".commentBody", body.toString()).each((_, elem) => {
                     comments.push({
                         name: $('a', elem).eq(0).text(),
-                        score: +$(elem).text().split("   Score: ").pop().split(" (Vote Up)")[0],
-                        comment: $(elem).text().split("(Vote Up)").pop()
+                        score: +$('.info:first-child > span', elem).text(),
+                        comment: $(elem).contents().filter((i, elem) => elem.type == 'text' && i >= 5).text()
                     });
                 });
             }
@@ -126,9 +126,9 @@ export async function fromGB(tags?: string, rand = true) {
             await getComs(body, true);
             
             $(".pagination > a", body.toString()).each((i, elem) => commentJobs.push('https://gelbooru.com/index.php' + $(elem).attr('href')));
-            for (let x of commentJobs)
-                await getComs(x);
+            await Promise.all(commentJobs.map(u => getComs(u)));
             comments = comments.sort((a,b) => b.score - a.score);
+            
             let stats = $('#tag-list > li', body).text().split('Statistics')[1];
             return {
                     page: req.request.res.responseUrl,
@@ -193,24 +193,4 @@ export async function fromNH(src?: string, tags?: string) {
         "format": $(".thumb-container > a > img", body.toString()).eq(1).attr('data-src').split(".").pop()
     };
     return ret;
-}
-
-export async function fromPH(gay?: boolean, tags?: string, much?: number) {
-    let body = (await ax.get(`https://www.pornhub.com/${gay ? 'gay/' : ''}video/search?search=${encodeURI(tags.replace(/ /g, '+'))}`, {headers: {"user-agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)  Chrome/41.0.2228.0 Safari/537.36"}})).data;
-    try {body = body.toString();}
-    catch (e) {return [];}
-    let links: { link: string; title: string; thumb: string; duration: string; }[] = [];
-    $("#videoSearchResult div.img.fade.videoPreviewBg.fadeUp > a", body).each((i, elem) => {
-        links.push({
-                        "link": "https://www.pornhub.com" + $(elem).attr('href'),
-                        "title": $(elem).attr('title'),
-                        "thumb": $(elem).children('img').attr("data-thumb_url"),
-                        "duration": $(elem).parent().children('.marker-overlays').text().replace(/[ \nA-z]/g, "")
-                    });
-    });
-    much = (!much) ? 1 : (much > 5) ? 5 : much;
-    while(links.length > much)
-        links.splice(Math.floor(Math.random() * (links.length)), 1);
-    
-    return links;
 }

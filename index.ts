@@ -1,3 +1,6 @@
+import events from 'events';
+events.captureRejections = true;
+
 import { Mokkun } from './lib/mokkun';
 import { LoggedError, SilentError } from './lib/util/errors/errors';
 require('dotenv').config();

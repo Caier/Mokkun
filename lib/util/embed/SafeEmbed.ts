@@ -5,7 +5,7 @@ export class SafeEmbed extends MessageEmbed {
 
     static max = {
         author: 256,
-        description: 2048,
+        description: 4096,
         title: 256,
         footerText: 2048,
         fields: 25,
@@ -28,10 +28,10 @@ export class SafeEmbed extends MessageEmbed {
     populateEmbeds(max = SafeEmbed.max.fields, embs: SafeEmbed[] = [], level = 1) : SafeEmbed[] {
         if(max != SafeEmbed.max.fields && level == 1)
             this.overFields.unshift(...this.fields.splice(max));
-        if(this.overFields.length == 0)
-            return embs;
         if(!embs.length)
             return this.populateEmbeds(max, [this.setFooter(`Strona 1/${Math.ceil(1 + this.overFields.length / max)}`)], ++level);
+        if(this.overFields.length == 0)
+            return embs;
         embs.push(new SafeEmbed(this).setFooter(`Strona ${level}/${embs.length + Math.ceil(this.overFields.length / max)}`));
         embs[embs.length - 1].fields = this.overFields.splice(0, max);
         return this.populateEmbeds(max, embs, ++level);
