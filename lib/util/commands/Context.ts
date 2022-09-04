@@ -1,4 +1,4 @@
-import { ApplicationCommandNumericOption, ApplicationCommandOptionType, BaseInteraction, CacheType, ChatInputApplicationCommandData, ChatInputCommandInteraction, Collection, ColorResolvable, CommandInteraction, DiscordAPIError, DMChannel, Guild, GuildMember, InteractionDeferReplyOptions, InteractionReplyOptions, InteractionResponse, Message, MessageEditOptions, MessageMentions, MessagePayload, ReplyMessageOptions, RGBTuple, TextChannel, User, WebhookEditMessageOptions } from "discord.js";
+import { APIApplicationCommandIntegerOption, APIApplicationCommandNumberOption, ApplicationCommandNumericOption, ApplicationCommandOptionType, BaseInteraction, CacheType, ChatInputApplicationCommandData, ChatInputCommandInteraction, Collection, ColorResolvable, CommandInteraction, DiscordAPIError, DMChannel, Guild, GuildMember, InteractionDeferReplyOptions, InteractionReplyOptions, InteractionResponse, Message, MessageEditOptions, MessageMentions, MessagePayload, ReplyMessageOptions, RGBTuple, TextChannel, User, WebhookEditMessageOptions } from "discord.js";
 import { Mokkun } from "../../mokkun.js";
 import SafeEmbed from "../embed/SafeEmbed.js";
 import { SilentError, LoggedError } from "../errors/errors.js";
@@ -139,17 +139,17 @@ export class MessageContext extends Context {
                     else if(!('choices' in option) || (option.choices?.length && option.choices.map(c => c.value).includes(tempargs[0])))
                         this.args.push(tempargs.shift());
                     else if('choices' in option && option.choices)
-                        throw Error(`Expected ${option.type} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
+                        throw Error(`Command parsing error: Expected ${ApplicationCommandOptionType[option.type]} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
                 }
                 else if(option.type == ApplicationCommandOptionType.Integer) {
-                    type N = ApplicationCommandNumericOption;
+                    type N = APIApplicationCommandIntegerOption;
                     if(Number.isInteger(+tempargs[0])) {
                         if('choices' in option && option.choices?.length && !option.choices.map(c => c.value).includes(+tempargs[0]))
-                            throw Error(`Expected ${option.type} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
-                        if(+tempargs[0] >= ((option as N).minValue ?? -Infinity) && +tempargs[0] <= ((option as N).maxValue ?? Infinity))
+                            throw Error(`Command parsing error: Expected ${ApplicationCommandOptionType[option.type]} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
+                        if(+tempargs[0] >= ((option as N).min_value ?? -Infinity) && +tempargs[0] <= ((option as N).max_value ?? Infinity))
                             this.args.push(+tempargs.shift()!);
                         else
-                           throw Error(`${option.type} at position ${i} must be >= than ${(option as N).minValue} and <= than ${(option as N).maxValue}`);
+                           throw Error(`Command parsing error: ${ApplicationCommandOptionType[option.type]} at position ${i} must be >= than ${(option as N).min_value} and <= than ${(option as N).max_value}`);
                     }
                     else
                         err();
@@ -191,14 +191,14 @@ export class MessageContext extends Context {
                         err();
                 }
                 else if(option.type == ApplicationCommandOptionType.Number) {
-                    type N = ApplicationCommandNumericOption;
+                    type N = APIApplicationCommandNumberOption;
                     if(!isNaN(+tempargs[0])) {
                         if('choices' in option && option.choices?.length && !option.choices.map(c => c.value).includes(+tempargs[0]))
-                            throw Error(`Expected ${option.type} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
-                        if(+tempargs[0] >= ((option as N).minValue ?? -Infinity) && +tempargs[0] <= ((option as N).maxValue ?? Infinity))
+                            throw Error(`Command parsing error: Expected ${ApplicationCommandOptionType[option.type]} at position ${i} to be one of: \`${option.choices.map(c => c.value).join(', ')}\`, instead got ${tempargs[0]}`);
+                        if(+tempargs[0] >= ((option as N).min_value ?? -Infinity) && +tempargs[0] <= ((option as N).max_value ?? Infinity))
                             this.args.push(+tempargs.shift()!);
                         else
-                           throw Error(`${option.type} at position ${i} must be >= than ${(option as N).minValue ?? -Infinity} and <= than ${(option as N).maxValue ?? Infinity}`);
+                           throw Error(`Command parsing error: ${ApplicationCommandOptionType[option.type]} at position ${i} must be >= than ${(option as N).min_value ?? -Infinity} and <= than ${(option as N).max_value ?? Infinity}`);
                     }
                     else
                         err();

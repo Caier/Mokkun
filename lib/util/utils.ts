@@ -94,7 +94,7 @@ namespace Utils {
         const getPage: (arg0: number) => Promise<EmbedBuilder> = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await (pages[i] as any)() || await pages[i]);
         const decide = (c: string | EmbedBuilder) => ({ embeds: typeof c == 'string' ? [] : [c], content: typeof c == 'string' ? c : null });
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
-        let components: ActionRowBuilder<ButtonBuilder | SelectMenuBuilder>[] = [new ActionRowBuilder<ButtonBuilder>().addComponents(emojis.map((e, i) => e && new ButtonBuilder().setCustomId(''+i).setEmoji(e).setStyle(ButtonStyle.Secondary).setDisabled(i < 2) || null).filter((e): e is ButtonBuilder => !!e))];
+        let components: ActionRowBuilder<ButtonBuilder | SelectMenuBuilder>[] = [new ActionRowBuilder<ButtonBuilder>().addComponents(emojis.map((e, i) => e && new ButtonBuilder().setCustomId(''+i).setEmoji(e).setStyle(ButtonStyle.Secondary).setDisabled(i < 2 || pages.length == 1) || null).filter((e): e is ButtonBuilder => !!e))];
         if(!opts?.disableMenu) {
             let perOption = Math.ceil(pages.length / 25);
             components.unshift(new ActionRowBuilder<SelectMenuBuilder>().addComponents(new SelectMenuBuilder().setCustomId('menu').setPlaceholder(`Strona 1/${pages.length}`)

@@ -66,7 +66,7 @@ class remind {
         let emb = new SafeEmbed().setColor(remCol).setAuthor('Reminders list').addFields(
             reminds.map(r => ({name: r.content, value: `**From:** <@${r.author}>\n**When:** <t:${Math.floor(+r.boomTime/1000)}>${ctx.guild ? `\n**In:** <#${r.createdIn}>` : ''}\n**id:** \`${r.id}\``, inline: true})));
         if(emb.data.fields?.length ?? 0 > 9)
-            await Utils.createPageSelector(await ctx.deferReply({ fetchReply: true }), emb.populateEmbeds(9));
+            await Utils.createPageSelector(await ctx.reply({ content: '\u200b', fetchReply: true }), emb.populateEmbeds(9));
         else
             await ctx.reply({ embeds: [emb] });
     }
