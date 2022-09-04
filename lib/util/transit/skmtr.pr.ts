@@ -1,12 +1,11 @@
-import ProviderResolver, { Departure, Station, StationDepartures } from "./ProviderResolver";
+import ProviderResolver, { Departure, Station, StationDepartures } from "./ProviderResolver.js";
 import fs from 'fs';
-import files from "../misc/files";
-import Utils from "../utils";
-import Task from "../tasks/Task";
+import files from "../misc/files.js";
+import Utils from "../utils.js";
+import Task from "../tasks/Task.js";
 import ax from 'axios';
 import $ from 'cheerio';
-import { MessageEmbed } from "discord.js";
-import { SafeEmbed } from "../embed/SafeEmbed";
+import SafeEmbed from "../embed/SafeEmbed.js";
 
 const shitNames = {
     '7567': "Gdańsk Przymorze-Uniwersytet",
@@ -34,9 +33,9 @@ export default class extends ProviderResolver {
 
     private async fetchStops() {
         let resp = await ax.get('https://www.skm.pkp.pl/');
-        let stops: typeof this.stops = $('#station-start > option:not(:first-child)', resp.data).toArray().map(e => ({ stopName: $(e).text(), stopId: $(e).attr('value') }));
+        let stops: typeof this.stops = $('#station-start > option:not(:first-child)', resp.data).toArray().map(e => ({ stopName: $(e).text()!, stopId: $(e).attr('value')! }));
         for(let [id, name] of Object.entries(shitNames))
-            stops.find(s => s.stopId == id).stopName = name;
+            stops.find(s => s.stopId == id)!.stopName = name;
         this.stops = stops;
         fs.writeFileSync(files.stops(this.name), JSON.stringify(this.stops, null, 2));
     }
@@ -44,8 +43,8 @@ export default class extends ProviderResolver {
     private async getTokens() {
         this.tokens.headers = { cookie: '' };
         let resp = await ax.get('https://portalpasazera.pl/Wyszukiwarka/ZnajdzPociag', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36 '}});
-        this.tokens.headers.cookie = resp.headers["set-cookie"].find(c => c.includes('Token')).split(' ')[0];
-        this.tokens.body = $('input[name=__RequestVerificationToken]', resp.data).attr('value');
+        this.tokens.headers.cookie = resp.headers["set-cookie"]!.find(c => c.includes('Token'))!.split(' ')[0];
+        this.tokens.body = $('input[name=__RequestVerificationToken]', resp.data).attr('value')!;
         let r = /headers: ?\{ ?'(.*?)': ?'(.*?)'/gm;
         let m;
         while(m = r.exec(resp.data))
@@ -124,8 +123,8 @@ export default class extends ProviderResolver {
         return { ...station, departures };
     }
 
-    departuresToEmbed(data: StationDepartures): MessageEmbed {
-        return new SafeEmbed().setColor('#fcff00').setAuthor({ name: this.name, iconURL: 'http://www.skm.pkp.pl/favicon-96x96.png' })
+    departuresToEmbed(data: StationDepartures): SafeEmbed {
+        return new SafeEmbed().setColor(0xfcff00).setAuthor({ name: this.name, icon_url: 'http://www.skm.pkp.pl/favicon-96x96.png' })
         .setDescription('\u200b').setTitle(`Odjazdy ze stacji ${data.stopName}`)
         .addFields(!data.departures.length ? [{ name: '\u200b', value: "brak odjazdów" }]
         : data.departures.slice(0, 25).map(d => ({ name: `**${d.destination}**`, value: d.estimate as string })));

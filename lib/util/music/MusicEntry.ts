@@ -1,7 +1,6 @@
 import { VideoEntry } from "@caier/yts/lib/interfaces";
-import { TrackEntry } from "@caier/sc/lib/interfaces";
 import { v4 as uuid } from 'uuid';
-import { IMusicHistory } from "../interfaces/IMusicHistory";
+import { IMusicHistory } from "../interfaces/IMusicHistory.js";
 import { AudioPlayer, AudioResource } from "@discordjs/voice";
 
 export class MusicEntry {
@@ -9,15 +8,13 @@ export class MusicEntry {
     addedOn: number = Date.now();
     addedBy: string;
     type: "yt"|"sc";
-    videoInfo: VideoEntry | TrackEntry;
+    videoInfo: VideoEntry;
     audioRes?: AudioResource;
 
-    constructor(opts: {vid: VideoEntry | TrackEntry, by: string, type: "yt"|"sc", queue?: any}) {
+    constructor(opts: {vid: VideoEntry, by: string, type: "yt"|"sc", queue?: any}) {
         this.addedBy = opts.by;
         this.type = opts.type;
         this.videoInfo = opts.vid;
-        if(this.type == 'sc')
-            (this.videoInfo as TrackEntry).full_response = undefined;
     }
     
     get strTime() {

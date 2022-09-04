@@ -1,6 +1,7 @@
-import { MessageEmbed } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import SafeEmbed from '../embed/SafeEmbed.js';
 
 export interface Departure {
     line?: string
@@ -22,7 +23,7 @@ export interface StationDepartures extends Station {
 
 export default class ProviderResolver {
     static providers = new Map<string, ProviderResolver>();
-    public stops: Station[];
+    public stops: Station[] = [];
 
     constructor(protected readonly name: string) {
         if(ProviderResolver.providers.has(name))
@@ -38,9 +39,12 @@ export default class ProviderResolver {
         throw new Error('Not implemented');
     }
 
-    departuresToEmbed(data: StationDepartures): MessageEmbed {
+    departuresToEmbed(data: StationDepartures): SafeEmbed {
         throw new Error('Not implemented');
     }
-}
 
-fs.readdirSync(__dirname).filter(p => p.endsWith('pr.js')).forEach(p => new (require(path.join(__dirname, p))).default());
+    static async loadResolvers() {
+        for(const file of fs.readdirSync(path.dirname(fileURLToPath(import.meta.url))).filter(p => p.endsWith('pr.js')))
+            new (await import(pathToFileURL(path.resolve(fileURLToPath(import.meta.url), '..', file)).toString())).default();
+    }
+}

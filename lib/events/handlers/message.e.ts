@@ -1,11 +1,12 @@
-import { Message, TextChannel } from "discord.js";
-import Context from "../../util/commands/Context";
-import { SilentError, LoggedError } from "../../util/errors/errors";
-import Utils from "../../util/utils";
-import BaseEventHandler, { Event } from "../BaseEventHandler";
+import { ChannelType, Message, TextChannel } from "discord.js";
+import { MessageContext } from "../../util/commands/Context.js";
+import SafeEmbed from "../../util/embed/SafeEmbed.js";
+import { SilentError, LoggedError } from "../../util/errors/errors.js";
+import BaseEventHandler from "../BaseEventHandler.js";
 
-@Event('messageCreate')
 export default class extends BaseEventHandler {
+    event() { return 'messageCreate' as const; }
+
     async onevent(msg: Message) {
         if(msg.channel.partial)
             ///@ts-ignore
@@ -15,57 +16,41 @@ export default class extends BaseEventHandler {
 
         if(msg.author.bot) return;
         
-        let args = this.bot.getArgs(msg.content, prefix);
+        let args = MessageContext.getArgs(msg.content, { prefix });
 
-        if(this.bot.guildScripts.has(msg.guild?.id)) {
-            try {
-                await this.bot.guildScripts.get(msg.guild.id)(msg, args, this.bot);
-            }
-            catch(err) {
-                if(err instanceof SilentError || err instanceof LoggedError)
-                    return;
-                console.error(`Error while executing guild script: ${(err as Error).stack}`);
-                Utils.send(msg.channel, this.bot.emb(`**Napotkano na błąd podczas wykonywania skryptu serwerowego :(**\n${(err as Error).message}`));
-            }
-        }   
-
-        if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
+        if(msg.content == '.resetprefix' && msg.guild && msg.member!.permissions.has("ManageGuild")) {
             this.bot.db.Data[msg.guild.id].prefix = '.';
-            Utils.send(msg.channel, this.bot.emb('Zresetowano prefix do "."'));
+            msg.channel.send({ embeds: [SafeEmbed.quick('Zresetowano prefix do "."')] });
         }
 
         if(!msg.content.startsWith(prefix)) return;
-        if(msg.author.id != this.bot.vars.BOT_OWNER && (msg.guild && (this.bot.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.bot.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
-            Utils.send(msg.channel, this.bot.emb(`**Ta komenda została zablokowana na tym kanale/serwerze!**`));
-            return;
-        }
 
         await this.executeCommand(msg, args);
     }
 
-    private async executeCommand(msg: Message, args: string[], commandScope = this.bot.commands, helpPath: string[] = []) {
-        const reason = (r: string) => Utils.send(msg.channel, this.bot.emb(r));
+    private async executeCommand(msg: Message, args: string[], commandScope = this.bot.commands.commands, helpPath: string[] = []) {
+        const reason = (r: string) => msg.channel.send({ embeds: [SafeEmbed.quick(r)] });
 
         try {
             if(commandScope.has(args[0]) || commandScope.has('_')) {
-                let cmd = commandScope.get(args[0]) || commandScope.get('_');
+                let cmd = commandScope.get(args[0])! || commandScope.get('_')!;
                 if(cmd.deprecated)
                     reason("**Ta komenda została wyłączona**");
                 else if(cmd.ownerOnly && msg.author.id != this.bot.vars.BOT_OWNER)
                     reason("**Z tej komendy może korzystać tylko owner bota!**");
                 else if(msg.guild && cmd.nsfw && !(msg.channel as TextChannel).nsfw)
                     reason("**Ten kanał nie pozwala na wysyłanie wiadomości NSFW!**");
-                else if(cmd.notdm && msg.channel.type == 'DM')
+                else if(cmd.notdm && msg.channel.type == ChannelType.DM)
                     reason("**Z tej komendy nie można korzystać na PRIV!**");
-                else if(msg.guild && cmd.permissions && !cmd.permissions.every(perm => msg.member.permissionsIn(msg.channel as TextChannel).has(perm)))
-                    reason(`**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissionsIn(msg.channel as TextChannel).has(p)).join("\n")}`);
+                else if(msg.guild && cmd.permissions && !cmd.permissions.every(perm => msg.member!.permissionsIn(msg.channel as TextChannel).has(perm)))
+                    reason(`**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member!.permissionsIn(msg.channel as TextChannel).has(p)).join("\n")}`);
                 else if(cmd.subcommandGroup)
-                    await this.executeCommand(msg, args.slice(1), cmd.subcommands, helpPath.push(cmd.name) && helpPath);
+                    await this.executeCommand(msg, args.slice(1), cmd.subcommands, helpPath.push(cmd.name) as Omit<number, 0> && helpPath);
                 else 
-                    await cmd.execute(new Context(msg, cmd, this.bot, msg.guild && this.bot.db.Data?.[msg.guild.id]?.prefix || '.'));
+                    await cmd.execute?.(new MessageContext(msg, cmd, this.bot, msg.guild && this.bot.db.Data?.[msg.guild.id]?.prefix || '.'));
             }
             else if(helpPath.length) {
-                this.bot.sendHelp(msg, helpPath);
+                //this.bot.sendHelp(msg, helpPath);
             }
         }
         catch(err) {
@@ -73,7 +58,7 @@ export default class extends BaseEventHandler {
                 return;
             if(process.env.DEBUG)
                 console.log(err);
-            msg.reply({ allowedMentions: { repliedUser: false }, embeds: [this.bot.emb(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err}`)] });
+            msg.reply({ allowedMentions: { repliedUser: false }, embeds: [SafeEmbed.quick(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err}`, { in: "DESC" })] });
         }
     }
 }

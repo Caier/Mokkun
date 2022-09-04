@@ -1,11 +1,12 @@
-import { group, ownerOnly, register, CmdParams as c } from "../../util/commands/cmdUtils";
+import { group, ownerOnly, register, CmdParams as c } from "../../util/commands/CommandDecorators.js";
 import fs from 'fs-extra';
 import path from 'path';
 import ax from 'axios';
-import Utils from "../../util/utils";
+import Utils from "../../util/utils.js";
+import { CommandGroup } from "../../util/commands/ICommand.js";
 
 @ownerOnly
-@group("BotOwner")
+@group(CommandGroup.Owner)
 export default class {
     // @register('ściąga pliki źródłowe i dane bota', '`$psrc ls` - wysyła listę plików w katalogu głównym bota\n`$psrc ls {ścieżka katalogu}` - wysyła listę plików w podanym katalogu\n`$psrc dl {ścieżka do pliku}` - wysyła podany plik, o ile plik nie jest oznaczony jako tajny\n`$psrc rm {ścieżka pliku}` - usuwa plik lub katalog, *tylko owner bota*\n`$psrc up` - wysyła plik do systemu plików bota - *tylko owner bota*')
     // static async src(msg: c.m, args: c.a, bot: c.b)

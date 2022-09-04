@@ -1,6 +1,6 @@
 import path from "path";
 import fs from 'fs';
-import { IDatabase } from "./IDatabaseData";
+import { IDatabase } from "./IDatabaseData.js";
 import { BaseClient } from "discord.js";
 
 export class Database extends BaseClient {
@@ -12,14 +12,14 @@ export class Database extends BaseClient {
         return path.join(process.cwd(), this.dbPath);
     }
 
-    private constructor(dbPath?: string) {
+    private constructor(dbPath: string) {
         super();
         this.dbPath = dbPath;
         this.DBinstance = this.prepareDb();
         this.addInstanceGetSave();
     }
 
-    static getInstance(dbPath?: string) {
+    static getInstance(dbPath: string) {
         if(!this.pubInst)
             this.pubInst = new Database(dbPath);
         return this.pubInst;
@@ -38,7 +38,7 @@ export class Database extends BaseClient {
     private addInstanceGetSave() {
         this.DBinstance.get = (query) => {
             let qy = query.split(".");
-            let temp = this.DBinstance[qy.shift()];
+            let temp = this.DBinstance[qy.shift()!];
             for(let q of qy)
                 if(temp === undefined) 
                     break;

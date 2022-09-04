@@ -1,17 +1,18 @@
 {
     "compilerOptions": {
       "target": "ES2019",                   
-      "module": "commonjs",              
+      "module": "ESNext",              
       "outDir": "./build",                    
       "strict": true,
-      "moduleResolution": "node",                                 
+      "moduleResolution": "Node",                                 
       "rootDirs": ["./"],                  
       "esModuleInterop": true,                         
       "inlineSourceMap": true,               
       "inlineSources": true,                 
       "forceConsistentCasingInFileNames": true,
-      "strictNullChecks": false,
+      "strictNullChecks": true,
       "experimentalDecorators": true,
-      "noFallthroughCasesInSwitch": true
+      "noFallthroughCasesInSwitch": true,
+      "noImplicitReturns": true
     }
   }

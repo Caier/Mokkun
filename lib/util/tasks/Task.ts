@@ -1,12 +1,12 @@
 import { BaseClient, Collection, TextBasedChannel } from "discord.js";
 import isOnline from "is-online";
-import { Mokkun } from "../../mokkun";
-import Utils from "../utils";
+import { Mokkun } from "../../mokkun.js";
+import Utils from "../utils.js";
 
 export default class Task {
     static tasks = new Collection<number, Task>();
     id: number;
-    bot: Mokkun;
+    bot!: Mokkun;
     ownData: any;
 
     constructor(
@@ -27,7 +27,7 @@ export default class Task {
             await this.exec(this);
         } catch(err) {
             if(process.env.DEBUG_CHANNEL)
-                Utils.send(await this.bot.channels.fetch(process.env.DEBUG_CHANNEL) as TextBasedChannel, `Error while executing task ${this.name}:\n${err}`, { split: true, code: 'js' }).catch(()=>{});
+                //Utils.send(await this.bot.channels.fetch(process.env.DEBUG_CHANNEL) as TextBasedChannel, `Error while executing task ${this.name}:\n${err}`, { split: true, code: 'js' }).catch(()=>{});
             console.error(`Error while executing task ${this.name}:\n${err}`);
         }
         setTimeout(() => this.preExec(), this.execInterval);

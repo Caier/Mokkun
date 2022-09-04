@@ -1,4 +1,4 @@
-import Playspace from "./Playspace";
+import Playspace from "./Playspace.js";
 
 export default class PlayspaceManager {
     spaces: Playspace[] = []
@@ -15,7 +15,7 @@ export default class PlayspaceManager {
 
         let p = new PlayspaceManager();
         p.spaces = data.spaces.map((s: Playspace) => Playspace.fromJSON(s));
-        p.current = p.spaces.find(p => p.name == data.current);
+        p.current = p.spaces.find(p => p.name == data.current)!;
         return p;
     }
 

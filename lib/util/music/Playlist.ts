@@ -1,13 +1,13 @@
-import { MusicEntry } from "./MusicEntry";
+import { MusicEntry } from "./MusicEntry.js";
 import ytfps from 'ytfps';
 import { VideoEntry } from "@caier/yts/lib/interfaces";
-import { IMusicHistory } from "../interfaces/IMusicHistory";
+import { IMusicHistory } from "../interfaces/IMusicHistory.js";
 
 export class Playlist {
     private entries: MusicEntry[] = [];
-    name: string;
+    name!: string;
     thumbnail?: string;
-    author: string;
+    author!: string;
 
     constructor(opts: {name: string, thumbnail?: string, author: string}) {
         Object.assign(this, opts);

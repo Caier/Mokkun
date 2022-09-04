@@ -1,7 +1,7 @@
 import ax, { AxiosRequestConfig } from 'axios';
 import $ from 'cheerio';
 import https from 'https';
-import Utils from '../utils';
+import Utils from '../utils.js';
 const agent = new https.Agent({  
     rejectUnauthorized: false
 });
@@ -19,7 +19,7 @@ export async function fromBooru(booru: string, tags?: string) {
         let tags = fur ? $("#image", body).attr('alt') : $("#tags", body).text();
         let comments: any[] = [];
         if(!link || link == 'undefined') {
-            link = $("#gelcomVideoPlayer > source", body).attr('src');
+            link = $("#gelcomVideoPlayer > source", body).attr('src') ?? '';
             tags = "video";
         }
         if(!link)
@@ -28,8 +28,8 @@ export async function fromBooru(booru: string, tags?: string) {
         $(r34 ? '#comment-list > div[id^="c"]' : fur ? '#content div[id^="c"]' : '#note-container > div[id^="c"]', body).each((i, elem) => {
             comments.push({
                 name: $('a', elem).eq(0).text(),
-                score: +$(elem).text().replace(/\n/g, '').split("Score: ").pop().split("(v")[0].trim(),
-                comment: $(elem).text().replace(/\n/g, '').split(r34 ? "mment)" : "spam)").pop().split('posts[')[0].trim()
+                score: +$(elem).text().replace(/\n/g, '').split("Score: ").pop()!.split("(v")[0].trim(),
+                comment: $(elem).text().replace(/\n/g, '').split(r34 ? "mment)" : "spam)").pop()!.split('posts[')[0].trim()
             });
         });
         comments = comments.sort((a,b) => b.score - a.score);
@@ -39,7 +39,7 @@ export async function fromBooru(booru: string, tags?: string) {
             base,
             page: req.request.res.responseUrl,
             link: link,
-            tags: tags,
+            tags: tags!,
             score: stats.split('Score:')[1].split('(')[0].trim(),
             rating: stats.split('Rating:')[1].split('Sc')[0].trim(),
             posted: stats.split('Posted:')[1].split(fur ? 'b' : 'B')[0].trim(),
@@ -63,7 +63,7 @@ export async function fromBooru(booru: string, tags?: string) {
     } catch {
         throw Error(base + " nie istnieje 😡");
     }
-    let post = +$(!fur ? '#paginator > a' : "#paginator > div > a", body).last().attr('href')?.replace(/\D/g, '') || 0;
+    let post = +($(!fur ? '#paginator > a' : "#paginator > div > a", body).last().attr('href')?.replace(/\D/g, '') ?? 0);
     if(post > (r34 ? 200000 : 2000000)) post = (r34 ? 200000 : 2000000);
     post = (post > (r34 ? 42 : fur ? 40 : 20)) ? Utils.rand(0, post) : 0;
 
@@ -133,7 +133,7 @@ export async function fromGB(tags?: string, rand = true) {
             return {
                     page: req.request.res.responseUrl,
                     link: link,
-                    tags: tags,
+                    tags: tags!,
                     score: stats.split('Score: ')[1].replace(/\D/g, ''),
                     rating: stats.split('Rating: ')[1].split('Score')[0],
                     posted: stats.split('Posted: ')[1].split('Upl')[0].trim(),
@@ -154,7 +154,7 @@ export async function fromGB(tags?: string, rand = true) {
         let body = (await ax.get(`http://gelbooru.com/index.php?page=post&s=list&tags=${encodeURI(tags.replace(/ /g, "+"))}${rand ? '%20sort:random' : ''}`, options)).data;
         
         $(".thumbnail-preview > a", body.toString()).each((i, elem) => {
-            imglinks.push($(elem).attr('href'));
+            imglinks.push($(elem).attr('href')!);
         });
         
         if(imglinks.length > 0 && rand) {
@@ -169,28 +169,28 @@ export async function fromGB(tags?: string, rand = true) {
 }
 
 export async function fromNH(src?: string, tags?: string) {
-    async function fromSearch(tags: string)
-    {
+    async function fromSearch(tags: string) {
         let body = (await ax.get("https://nhentai.net/search/?q=" + encodeURI(tags.replace(/ /g, "+")))).data;
         let max = Math.ceil(parseInt($("#content > h1", body.toString()).text().replace(/[ ,A-z]/g, "")) / 25);
-        if(!max) return;
+        if(!max) return null;
         
         body = (await ax.get(`https://nhentai.net/search/?q=${encodeURI(tags.replace(/ /g, "+"))}&page=${Math.floor(Math.random() * max) + 1}`)).data;
         
         let elems = $("#content > div.container.index-container > div > a", body.toString()).get().length;
         return "https://nhentai.net" + $("#content > div.container.index-container > div > a", body.toString()).eq(Math.floor(Math.random() * elems)).attr('href');
-    }
+    };
+
     let url = (src) ? src : (tags) ? await fromSearch(tags) : "https://nhentai.net/random";
-    if(!url) return;
+    if(!url) return null;
     let body = (await ax.get(url)).data;
-    if(!body) return;
+    if(!body) return null;
     let ret = {
-        "link": "https://nhentai.net" + $("#cover > a", body.toString()).attr('href').slice(0, -2),
+        "link": "https://nhentai.net" + $("#cover > a", body.toString()).attr('href')!.slice(0, -2),
         "name": $("#info > h1", body.toString()).text(),
         "tags": $(".tag-container:nth-child(3) .name", body.toString()).map((i, elem) => $(elem).text()).toArray().join(', '),
         "thumb": $("#cover > a > img", body.toString()).attr('data-src'),
         "maxPage": +$(".tag-container:nth-child(8) .name", body.toString()).text(),
-        "format": $(".thumb-container > a > img", body.toString()).eq(1).attr('data-src').split(".").pop()
+        "format": $(".thumb-container > a > img", body.toString()).eq(1).attr('data-src')!.split(".").pop()
     };
     return ret;
 }

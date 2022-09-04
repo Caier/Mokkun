@@ -1,26 +1,28 @@
-import { group, aliases, register, CmdParams as c, extend, options } from "../../util/commands/cmdUtils";
+import { group, aliases, register, CmdParams as c, extend, options } from "../../util/commands/CommandDecorators.js";
 import ax from 'axios';
-import { SafeEmbed } from "../../util/embed/SafeEmbed";
-import Utils from "../../util/utils";
-import Context from "../../util/commands/Context";
+import SafeEmbed from "../../util/embed/SafeEmbed.js";
+import Utils from "../../util/utils.js";
+import Context from "../../util/commands/Context.js";
+import { CommandGroup } from "../../util/commands/ICommand.js";
+import { ApplicationCommandOptionType } from "discord.js";
 
-@group('Anime')
+@group(CommandGroup.Anime)
 export default class {
     @aliases('char')
     @register('gets a detailed description of an anime character', '', { free: 0 })
-    @options({ type: "STRING", name: 'character', description: 'the character to lookup (min. 3 letters)', required: true })
+    @options({ type: ApplicationCommandOptionType.String, name: 'character', description: 'the character to lookup (min. 3 letters)', required: true })
     static async character(ctx: Context) {
         const color = 0xa3cb48;
         const query = ctx.options.get('character') as string;
         if(query?.length < 3) {
-            await ctx.reply({ embeds: [ctx.emb('The query must be at least 3 characters long.', { color })] });
+            await ctx.reply({ embeds: [SafeEmbed.quick('The query must be at least 3 characters long.', { color })] });
             return;
         }
 
-        const reply = await ctx.reply({ embeds: [ctx.emb('Searching for characters...', { color })], fetchReply: true });
+        const reply = await ctx.reply({ embeds: [SafeEmbed.quick('Searching for characters...', { color })], fetchReply: true });
         const chars = (await ax.get(`https://api.jikan.moe/v4/characters?q=${encodeURI(query)}&limit=25&order_by=favorites&sort=desc`, {responseType: 'json', validateStatus: s => s == 200 || s == 404})).data?.data;
         if(!chars?.length) {
-            await ctx.editReply({ embeds: [ctx.emb(`**${ctx.user} couldn't find:** ${query}`, { color, in: 'DESC' })] });
+            await ctx.editReply({ embeds: [SafeEmbed.quick(`**${ctx.user} couldn't find:** ${query}`, { color, in: 'DESC' })] });
             return;
         }
 

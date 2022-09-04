@@ -3,6 +3,7 @@
   "version": "4.1.0",
   "description": "Discord Mokkun Bot",
   "main": "build/index.js",
+  "type": "module",
   "scripts": {
     "start": "rm -rf build && tsc && node build/index.js",
     "startWin": "rd /s /q build && tsc && node build/index.js"
@@ -15,10 +16,8 @@
   "author": "caier",
   "license": "ISC",
   "dependencies": {
-    "@caier/sc": "latest",
     "@caier/yts": "latest",
-    "@discordjs/builders": "^0.11.0",
-    "@discordjs/opus": "^0.5.0",
+    "@discordjs/opus": "^0.8.0",
     "@discordjs/rest": "^0.3.0",
     "@discordjs/voice": "^0.8.0",
     "@types/cheerio": "^0.22.22",
@@ -27,21 +26,20 @@
     "@types/uuid": "^7.0.4",
     "@types/ws": "^7.2.8",
     "cheerio": "*",
-    "discord-api-types": "^0.26.1",
-    "discord.js": "^13.6.0",
+    "discord-api-types": "^0.37.1",
+    "discord.js": "^14.3.0",
     "dotenv": "^8.2.0",
     "ffmpeg-static": "^4.2.7",
     "fs": "*",
     "fs-extra": "^8.1.0",
-    "is-online": "^8.5.1",
+    "is-online": "^10.0.0",
     "prism-media": "^1.2.2",
-    "typescript": "^4.5.4",
+    "typescript": "4.7",
     "uuid": "^7.0.0",
     "ytdl-core": "latest",
     "ytfps": "latest"
   },
   "engines": {
-    "node": "^16.6",
-    "npm": "^7.x"
+    "node": "^16.6"
   }
 }
