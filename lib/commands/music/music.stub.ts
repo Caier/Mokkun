@@ -1,5 +1,5 @@
 // import { group, CmdParams as c, notdm, register, extend, aliases, deprecated, subcommandGroup } from "../../util/commands/cmdUtils";
-// import { SafeEmbed } from "../../util/embed/SafeEmbed";
+// import SafeEmbed from "../../util/embed/SafeEmbed";
 // import { MusicQueue } from "../../util/music/MusicQueue";
 // import { Message, TextChannel, VoiceChannel } from "discord.js";
 // import yts from '@caier/yts';

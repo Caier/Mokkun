@@ -1,11 +1,10 @@
-import ProviderResolver, { Station, StationDepartures } from "./ProviderResolver";
+import ProviderResolver, { Station, StationDepartures } from "./ProviderResolver.js";
 import fs from 'fs';
-import files from "../misc/files";
-import Utils from "../utils";
-import Task from "../tasks/Task";
+import files from "../misc/files.js";
+import Utils from "../utils.js";
+import Task from "../tasks/Task.js";
 import ax from 'axios';
-import { MessageEmbed } from "discord.js";
-import { SafeEmbed } from "../embed/SafeEmbed";
+import SafeEmbed from "../embed/SafeEmbed.js";
 
 export default class extends ProviderResolver {
     constructor() {
@@ -38,9 +37,9 @@ export default class extends ProviderResolver {
                 let Qwords = query.split(' ');
                 let code;
                 if(!isNaN(+Qwords[Qwords.length - 1]))
-                    code = +Qwords.pop();
+                    code = +Qwords.pop()!;
                 let Swords = s.stopName.toLowerCase().trim().split(' ');
-                if(Qwords.length != Swords.length || code && !s.stopCode.endsWith(''+code))
+                if(Qwords.length != Swords.length || code && !s.stopCode!.endsWith(''+code))
                     continue;
                 if(Qwords.every((w, i) => Swords[i].startsWith(w)))
                     splitRes.push(s);
@@ -55,7 +54,7 @@ export default class extends ProviderResolver {
         if(!resp.data)
             throw Error('Invalid station ID');
         return {
-            ...this.stops.find(s => s.stopId == station.stopId),
+            ...this.stops.find(s => s.stopId == station.stopId)!,
             departures: resp.data.departures.map((d: any) => ({
                 line: ''+d.routeId,
                 destination: d.headsign,
@@ -65,11 +64,11 @@ export default class extends ProviderResolver {
         };
     }
 
-    departuresToEmbed(data: StationDepartures): MessageEmbed {
+    departuresToEmbed(data: StationDepartures): SafeEmbed {
         return new SafeEmbed().setColor(13632027)
         .setTitle(`Odjazdy z przystanku ${data.stopName} ${data.stopCode}`)
-        .setDescription('\u200b').setAuthor({ name: this.name, iconURL: 'https://i.imgur.com/LugSpz8.png' })
+        .setDescription('\u200b').setAuthor({ name: this.name, icon_url: 'https://i.imgur.com/LugSpz8.png' })
         .addFields(!data.departures.length ? [{name: '\u200b', value: "brak odjazdów w najbliższym czasie"}]
-        : data.departures.map(i => ({name: `**${(['4', '8'].includes(i.line[0]) && i.line.length >= 2) ? ((i.line[0] === '4') ? 'N' : 'T') + i.line.slice((i.line[1] === '0') ? 2 : 1) : i.line} ${i.destination}** ${i.vehicle ? `[${i.vehicle}]` : ''}`, value: `**${+i.estimate - Date.now() > 60_000 ? `za ${Math.round((+i.estimate - Date.now()) / 60_000)} min. **[${(i.estimate as Date).toLocaleTimeString(['pl-PL'], { timeZone: 'Europe/Warsaw' }).slice(0, -3)}]` : '>>>>**'}`})));
+        : data.departures.map(i => ({name: `**${(['4', '8'].includes(i.line![0]) && i.line!.length >= 2) ? ((i.line![0] === '4') ? 'N' : 'T') + i.line!.slice((i.line![1] === '0') ? 2 : 1) : i.line} ${i.destination}** ${i.vehicle ? `[${i.vehicle}]` : ''}`, value: `**${+i.estimate - Date.now() > 60_000 ? `za ${Math.round((+i.estimate - Date.now()) / 60_000)} min. **[${(i.estimate as Date).toLocaleTimeString(['pl-PL'], { timeZone: 'Europe/Warsaw' }).slice(0, -3)}]` : '>>>>**'}`})));
     }
 }

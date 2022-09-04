@@ -18,10 +18,10 @@ function filter(format: videoFormat) {
  */
 function nextBestFormat(formats: videoFormat[], isLive: boolean) {
     let filter = (format: videoFormat) => Boolean(format.audioBitrate);
-    if (isLive) filter = format => format.audioBitrate && format.isHLS;
+    if (isLive) filter = format => !!format.audioBitrate && format.isHLS;
     formats = formats
         .filter(filter)
-        .sort((a, b) => b.audioBitrate - a.audioBitrate);
+        .sort((a, b) => b.audioBitrate! - a.audioBitrate!);
     return formats.find(format => !format.bitrate) || formats[0];
 }
 

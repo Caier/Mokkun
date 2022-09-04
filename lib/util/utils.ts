@@ -1,28 +1,11 @@
-import Discord, { TextChannel, MessageReaction, User, CollectorOptions, MessageEmbed, DMChannel, ReactionCollector, Message, ColorResolvable, ReactionCollectorOptions, TextBasedChannel, Formatters, MessageOptions, Util, MessageActionRow, MessageButton, MessageComponentCollectorOptions, MessageComponentInteraction, MessageSelectMenu } from 'discord.js';
+import Discord, { TextChannel, MessageReaction, User, CollectorOptions, DMChannel, ReactionCollector, Message, ColorResolvable, ReactionCollectorOptions, TextBasedChannel, Formatters, MessageOptions, MessageComponentCollectorOptions, MessageComponentInteraction, RGBTuple, ComponentType, SelectMenuInteraction, ButtonInteraction, MessageCollectorOptionsParams, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SelectMenuBuilder, APIEmbed } from 'discord.js';
 import fs from 'fs-extra';
 import path from 'path';
-import { SafeEmbed } from './embed/SafeEmbed';
+import SafeEmbed from './embed/SafeEmbed.js';
 
 namespace Utils {
     export const regexes = {
         url: /^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$/
-    }
-
-    export async function send(channel: TextBasedChannel, content?: string | MessageEmbed, options?: MessageOptions & { split?: boolean, code?: string }) {
-        if(content instanceof MessageEmbed)
-            return await channel.send({ ...options, embeds: [content] });
-        if(options?.split) {
-            let msgs = Util.splitMessage(content, { maxLength: 1990 });
-            if(options?.code)
-                msgs = msgs.map(m => Formatters.codeBlock(options.code, m));
-            let lastM: Message;
-            for(let m of msgs)
-                lastM = await channel.send({ content: m, ...options });
-            return lastM;
-        }
-        else if(options?.code)
-            return await channel.send({ content: Formatters.codeBlock(options.code, content), ...options });
-        return await channel.send({ content, ...options });
     }
 
     /**
@@ -68,9 +51,9 @@ namespace Utils {
      */
     export function dirWalk(dir: string) {
         if(!fs.existsSync(dir))
-            throw Error("Directory does not exist");
+            throw Error("Directory does not exist: " + dir);
         if(!fs.statSync(dir).isDirectory())
-            throw Error("Specified path is not a directory");
+            throw Error("Specified path is not a directory" + dir);
         
         let content = fs.readdirSync(dir);
         content.forEach((v, i, a) => {
@@ -105,16 +88,16 @@ namespace Utils {
     * @param opts.collOpts Options of the MessageComponentCollector
     * @returns [collector, message to which collector is attached]
     */
-    export async function createPageSelector(ctx: TextChannel | DMChannel | Message, pages: (MessageEmbed | string)[] | Promise<(MessageEmbed | string)>[] | (() => Promise<(MessageEmbed | string)>)[],
-    opts?: {triggers?: string[], emojis?: string[], disableMenu?: boolean, collOpts?: MessageComponentCollectorOptions<MessageComponentInteraction>}) {
-        let cache: (MessageEmbed | string)[] = [];
-        const getPage: (arg0: number) => Promise<MessageEmbed> = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await (pages[i] as any)() || await pages[i]);
-        const decide = (c: string | MessageEmbed) => ({ embeds: typeof c == 'string' ? [] : [c], content: typeof c == 'string' ? c : null });
+    export async function createPageSelector(ctx: TextChannel | DMChannel | Message, pages: (EmbedBuilder | string)[] | Promise<(EmbedBuilder | string)>[] | (() => Promise<(EmbedBuilder | string)>)[],
+    opts?: {triggers?: string[], emojis?: (string | null)[], disableMenu?: boolean, collOpts?: MessageCollectorOptionsParams<ComponentType.Button | ComponentType.SelectMenu> }) {
+        let cache: (EmbedBuilder | string)[] = [];
+        const getPage: (arg0: number) => Promise<EmbedBuilder> = async (i: number) => cache[i] || (cache[i] = typeof pages[i] == 'function' && await (pages[i] as any)() || await pages[i]);
+        const decide = (c: string | EmbedBuilder) => ({ embeds: typeof c == 'string' ? [] : [c], content: typeof c == 'string' ? c : null });
         let emojis = opts?.emojis || ['⏪', '◀', '▶', '⏩', '❌'];
-        let components = [new MessageActionRow().addComponents(emojis.map((e, i) => e && new MessageButton().setCustomId(''+i).setEmoji(e).setStyle("SECONDARY").setDisabled(i < 2)).filter(Boolean))];
+        let components: ActionRowBuilder<ButtonBuilder | SelectMenuBuilder>[] = [new ActionRowBuilder<ButtonBuilder>().addComponents(emojis.map((e, i) => e && new ButtonBuilder().setCustomId(''+i).setEmoji(e).setStyle(ButtonStyle.Secondary).setDisabled(i < 2) || null).filter((e): e is ButtonBuilder => !!e))];
         if(!opts?.disableMenu) {
             let perOption = Math.ceil(pages.length / 25);
-            components.unshift(new MessageActionRow().addComponents(new MessageSelectMenu().setCustomId('menu').setPlaceholder(`Strona 1/${pages.length}`)
+            components.unshift(new ActionRowBuilder<SelectMenuBuilder>().addComponents(new SelectMenuBuilder().setCustomId('menu').setPlaceholder(`Strona 1/${pages.length}`)
                 .setOptions(Array(Math.floor(pages.length / perOption)).fill(0).map((_, i) => ({ label: 'Strona '+ ((i * perOption) + 1), value: ''+ i * perOption })))));
         }
         let nmsg = ctx instanceof Message ? await ctx.edit({ ...decide(await getPage(0)), components }) : await ctx.send({ ...decide(await getPage(0)), components });
@@ -124,16 +107,16 @@ namespace Utils {
             ...(opts?.collOpts || { idle: 600_000 })
         }).on('collect', async int => {
             if(opts?.triggers && !opts.triggers.includes(int.user.id)) {
-                await int.reply({ embeds: [new SafeEmbed().setAuthor('Nie jesteś użytkownikiem, który może kontrolować tą wiadomość.').setColor("WHITE")], ephemeral: true })
+                await int.reply({ embeds: [new SafeEmbed().setAuthor('Nie jesteś użytkownikiem, który może kontrolować tą wiadomość.').setColor(0xFFFFFF)], ephemeral: true })
                 return;
             }
 
             const edit = async (page: number) => {
                 if(!opts?.disableMenu)
-                    (components[0].components[0] as MessageSelectMenu).setPlaceholder(`Strona ${curPage + 1}/${pages.length}`);
+                    (components[0].components[0] as SelectMenuBuilder).setPlaceholder(`Strona ${curPage + 1}/${pages.length}`);
                 components.forEach(row => row.components.forEach(c => c.setDisabled(false)));
                 for(let c of components[opts?.disableMenu ? 0 : 1].components)
-                    switch(+c.customId) {
+                    switch(+(c.data as Partial<Exclude<Discord.APIButtonComponent, Discord.APIButtonComponentWithURL> | Partial<Discord.APISelectMenuComponent>>).custom_id!) {
                         case 0: case 1: curPage == 0 && c.setDisabled(true); break;
                         case 2: case 3: curPage == pages.length - 1 && c.setDisabled(true);
                     }
@@ -199,31 +182,31 @@ namespace Utils {
      * @param opts.buttons What should be presented in the buttons
      * @returns `true` if user answered yes, `false` if user answered no or timed out
      */
-    export function confirmBox(ctx: TextChannel | DMChannel | Message, question: string | MessageEmbed, opts?: { for?: User, color?: ColorResolvable, time?: number, buttons?: [string, string] | [MessageButton, MessageButton] }) {
+    export function confirmBox(ctx: TextChannel | DMChannel | Message, question: string | EmbedBuilder, opts?: { for?: User, color?: number | RGBTuple, time?: number, buttons?: [string, string] | [ButtonBuilder, ButtonBuilder] }) {
         return new Promise<boolean>(async res => {
-            const components = [new MessageActionRow().addComponents(opts?.buttons?.[0] instanceof MessageButton ? opts.buttons as MessageButton[] : [
-                new MessageButton().setCustomId('y').setStyle('SUCCESS').setLabel(opts?.buttons?.[0] as string ?? 'Confirm'),
-                new MessageButton().setCustomId('n').setStyle('DANGER').setLabel(opts?.buttons?.[1] as string ?? 'Cancel')
+            const components = [new ActionRowBuilder<ButtonBuilder>().addComponents(opts?.buttons?.[0] instanceof ButtonBuilder ? opts.buttons as ButtonBuilder[] : [
+                new ButtonBuilder().setCustomId('y').setStyle(ButtonStyle.Success).setLabel(opts?.buttons?.[0] as string ?? 'Confirm'),
+                new ButtonBuilder().setCustomId('n').setStyle(ButtonStyle.Danger).setLabel(opts?.buttons?.[1] as string ?? 'Cancel')
             ])];
-            const ctn = { components, embeds: [question instanceof MessageEmbed ? question : 
-                new SafeEmbed().setAuthor('Attention!').addField('Decides:', opts?.for?.tag ?? 'Anyone').setDescription(question).setColor(opts?.color ?? '#bc0000').setFooter('Decide, using buttons below')
+            const ctn = { components, embeds: [(typeof question != 'string') ? question : 
+                new SafeEmbed().setAuthor('Attention!').addField('Decides:', opts?.for?.tag ?? 'Anyone').setDescription(question).setColor(opts?.color ?? 0xbc0000).setFooter('Decide, using buttons below')
             ]};
             const msg = ctx instanceof Message ? await ctx.edit(ctn) : await ctx.send(ctn);
             
-            const coll = msg.createMessageComponentCollector({ time: opts?.time ?? 120_000, componentType: 'BUTTON' }).on('collect', async int => {
+            const coll = msg.createMessageComponentCollector({ time: opts?.time ?? 120_000, componentType: ComponentType.Button }).on('collect', async int => {
                 if(opts?.for && int.user.id != opts.for.id) {
                     int.reply({ ephemeral: true, content: 'That question isn\'t for you to decide' });
                     return;
                 }
 
-                const answer = int.customId == components[0].components[0].customId;
+                const answer = int.customId == (components[0].components[0].data as Partial<Exclude<Discord.APIButtonComponent, Discord.APIButtonComponentWithURL>>).custom_id;
                 res(answer);
                 coll.stop('answered');
             }).on('end', (_, reason) => {
                 if(reason == 'answered' && !(ctx instanceof Message))
                     msg.delete().catch(()=>{});
                 else if(reason != 'answered') {
-                    msg.edit({ components: [], embeds: [msg.embeds[0].setFooter({text: 'No option has been chosen.'})] }).catch(()=>{});
+                    msg.edit({ components: [], embeds: [new SafeEmbed(msg.embeds[0] as APIEmbed).setFooter({text: 'No option has been chosen.'})] }).catch(()=>{});
                     res(false);
                 }
             });

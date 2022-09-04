@@ -1,17 +1,17 @@
 import { Snowflake } from "discord.js";
-import { IMusicHistory } from "../interfaces/IMusicHistory";
-import { MusicEntry } from "./MusicEntry";
+import { IMusicHistory } from "../interfaces/IMusicHistory.js";
+import { MusicEntry } from "./MusicEntry.js";
 
 export default class Playspace {
-    readonly isDefault: boolean
+    readonly isDefault: boolean = false;
     maxHistory = 200 
     queue: MusicEntry[] = []
     history: IMusicHistory[] = []
     playing: MusicEntry | null = null
-    name: string
+    name!: string
     description?: string
-    author: Snowflake
-    moderators: Snowflake[]
+    author!: Snowflake
+    moderators: Snowflake[] = []
     isPublic = true
 
     constructor(args: {name: string, description?: string, author: Snowflake, isDefault?: boolean, moderators?: Snowflake[], isPublic?: boolean}) {

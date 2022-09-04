@@ -1,7 +1,7 @@
-import { Mokkun } from "../../mokkun";
-import { ApplicationCommandOption, ApplicationCommandOptionChoice, AutocompleteInteraction, Collection, Message, PermissionString } from "discord.js";
-import { ICommand } from "./ICommand";
-import Context from "./Context";
+import { Mokkun } from "../../mokkun.js";
+import { Collection, Message } from "discord.js";
+import { CommandGroup, ICommand } from "./ICommand.js";
+import Context from "./Context.js";
 
 export namespace CmdParams {
     export type m = Message;
@@ -23,7 +23,7 @@ function applyToAll(target: any, what: string, val: any) {
     target[`$${what}`] = val;
 }
 
-export function aliases(...aliases: string[]) {
+export function aliases(...aliases: Exclude<ICommand['aliases'], undefined>) {
     return function(target: any, propertyKey?: any) {
         if(!propertyKey) {
             target.$$aliases = aliases;
@@ -49,7 +49,7 @@ export function register(description: string = '', usage: string = '', opts?: IC
     }
 }
 
-export function options(...opts: ICommand['options']) {
+export function options(...opts: Exclude<ICommand['options'], undefined>) {
     return function(target: any, propKey?: string) {
         if(!propKey) applyToAll(target, 'options', opts);
         else initProps(target, propKey).options = opts;
@@ -66,14 +66,14 @@ export function ownerOnly(target: any, propKey?: string) {
     else initProps(target, propKey).ownerOnly = true;
 }
 
-export function permissions(...permArr: PermissionString[]) {
+export function permissions(...permArr: Exclude<ICommand['permissions'], undefined>) {
     return function(target: any, propKey?: string) {
         if(!propKey) applyToAll(target, 'permissions', permArr);
         else initProps(target, propKey).permissions = permArr;
     }
 }
 
-export function group(group: string) {
+export function group(group: ICommand['group']) {
     return function(target: any, propKey?: string) {
         if(!propKey) applyToAll(target, 'group', group);
         else initProps(target, propKey).group = group;
