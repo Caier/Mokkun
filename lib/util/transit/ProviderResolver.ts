@@ -1,7 +1,7 @@
+import { APIEmbed, JSONEncodable } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
-import SafeEmbed from '../embed/SafeEmbed.js';
 
 export interface Departure {
     line?: string
@@ -21,7 +21,7 @@ export interface StationDepartures extends Station {
     departures: Departure[]
 }
 
-export default class ProviderResolver {
+export default abstract class ProviderResolver {
     static providers = new Map<string, ProviderResolver>();
     public stops: Station[] = [];
 
@@ -31,17 +31,11 @@ export default class ProviderResolver {
         ProviderResolver.providers.set(name, this);
     }
 
-    async queryStations(query: string): Promise<Station[]> {
-        throw new Error('Not implemented');
-    }
+    abstract queryStations(query: string): Promise<Station[]>;
 
-    async getDepartures(station: Station): Promise<StationDepartures> {
-        throw new Error('Not implemented');
-    }
+    abstract getDepartures(station: Station): Promise<StationDepartures>;
 
-    departuresToEmbed(data: StationDepartures): SafeEmbed {
-        throw new Error('Not implemented');
-    }
+    abstract departuresToEmbed(data: StationDepartures): JSONEncodable<APIEmbed>;
 
     static async loadResolvers() {
         for(const file of fs.readdirSync(path.dirname(fileURLToPath(import.meta.url))).filter(p => p.endsWith('pr.js')))

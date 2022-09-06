@@ -86,8 +86,8 @@ class remind {
     })
     static async remove(ctx: Context, reminds: IRemind[]) {
         let parsedIds = (ctx.options.get('id') as string).split(',').map(i => i.trim()).filter(i => i != '' && i != ' ');
-        let guildChs = await ctx.guild?.channels?.fetch()!;
-        let availRems = (ctx.bot.db.System?.reminders as IRemind[])?.filter(r => guildChs.get(r.createdIn) || r.createdIn == ctx.channel.id);
+        let guildChs = await ctx.guild?.channels?.fetch();
+        let availRems = (ctx.bot.db.System?.reminders as IRemind[])?.filter(r => guildChs?.get(r.createdIn) || r.createdIn == ctx.channel.id);
         if(!!ctx.guild && !ctx.member!.permissions.has('ManageMessages'))
             availRems = availRems.filter(r => r.author == ctx.user.id);
         let successIds = [];
