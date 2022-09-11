@@ -29,7 +29,7 @@ export default class extends BaseEventHandler {
     }
 
     private async executeCommand(msg: Message, args: string[], commandScope = this.bot.commands.commands, helpPath: string[] = []) {
-        const reason = (r: string) => msg.channel.send({ embeds: [SafeEmbed.quick(r)] });
+        const reason = (r: string) => msg.channel.send({ embeds: [SafeEmbed.quick(r, { in: 'TITLE' })] });
 
         try {
             if(commandScope.has(args[0]) || commandScope.has('_')) {

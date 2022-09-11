@@ -40,7 +40,7 @@ export default abstract class Context {
             return;
         if(process.env.DEBUG)
             console.log(err);
-        const msg = { embeds: [SafeEmbed.quick(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err}`)] };
+        const msg = { embeds: [SafeEmbed.quick(`**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err}`, { in: 'DESC' })] };
         try {
             if(this.replied)
                 await this.followUp(msg);
