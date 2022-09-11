@@ -26,8 +26,8 @@ class remind {
             return await ctx.reply({ embeds: [SafeEmbed.quick('You cannot have more than 50 reminders per guild / dmChannel', { color: remCol })] });
         
         let boomTime = Utils.parseTimeStrToMilis(ctx.options.get('time'));
-        if(boomTime < 1)
-            return await ctx.reply({ embeds: [SafeEmbed.quick('Invalid time', { color: remCol })] });
+        if(boomTime < 1 || boomTime > Utils.parseTimeStrToMilis('24M'))
+            return await ctx.reply({ embeds: [SafeEmbed.quick('Remind time must be >= 1s and <= 24M', { color: remCol })] });
         boomTime += Date.now();
 
         const id = ((+('' + Date.now()).slice(7)).toString(36) + Math.random().toString(36).slice(2, 5));
