@@ -2,6 +2,7 @@ import { APIEmbed, JSONEncodable } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import SafeEmbed from '../embed/SafeEmbed';
 
 export interface Departure {
     line?: string
@@ -35,7 +36,7 @@ export default abstract class ProviderResolver {
 
     abstract getDepartures(station: Station): Promise<StationDepartures>;
 
-    abstract departuresToEmbed(data: StationDepartures): JSONEncodable<APIEmbed>;
+    abstract departuresToEmbed(data: StationDepartures): SafeEmbed;
 
     static async loadResolvers() {
         for(const file of fs.readdirSync(path.dirname(fileURLToPath(import.meta.url))).filter(p => p.endsWith('pr.js')))
