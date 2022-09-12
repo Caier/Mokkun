@@ -115,7 +115,18 @@ export default class extends ProviderResolver {
             departures.push(ax.get(`https://portalpasazera.pl/WynikiWyszukiwania/ZnajdzPociag?sid=${token}&p=${i}`).then(resp => $('.catalog-table__row', resp.data).toArray().filter(e => $('> div:nth-child(6) > strong', e).text().includes('Miejska w T')).map(e => ({
                 destination: $('> div:nth-child(11) > strong > span:nth-child(3)', e).text(),
                 vehicle: $('> div:nth-child(9) > strong', e).text(),
-                estimate: /(\d+:\d+)(?:.*(\(.*?\)))?/s.exec($('> div:nth-child(2) > h3', e).text())?.slice(1, 3)?.join(' ')?.trim()
+                estimate: (() => {
+                    let date = new Date();
+                    let [hours, minutes, delay] = /(\d+):(\d+)(?:.*\((.*?) )?/s.exec($('> div:nth-child(2) > h3', e).text())?.slice(1)!.map(s => +s)!;
+                    if(delay)
+                        minutes += delay;
+                    if(date.getHours() > hours)
+                        date = new Date(Date.now() + 3600 * 23 * 1000);
+                    date.setHours(hours);
+                    date.setMinutes(minutes);
+                    date.setSeconds(0);
+                    return date;
+                })()
             } as Departure))));
         
         departures = (await Promise.all(departures)).flat();
@@ -127,6 +138,6 @@ export default class extends ProviderResolver {
         return new SafeEmbed().setColor(0xfcff00).setAuthor({ name: this.name, icon_url: 'http://www.skm.pkp.pl/favicon-96x96.png' })
         .setDescription('\u200b').setTitle(`Odjazdy ze stacji ${data.stopName}`)
         .addFields(!data.departures.length ? [{ name: '\u200b', value: "brak odjazdów" }]
-        : data.departures.slice(0, 25).map(d => ({ name: `**${d.destination}**`, value: d.estimate as string })));
+        : data.departures.slice(0, 25).map(d => ({ name: `**${d.destination}**`, value: `**${+d.estimate - Date.now() > 60_000 ? `za ${Math.round((+d.estimate - Date.now()) / 60_000)} min. **[${(d.estimate as Date).toLocaleTimeString(['pl-PL'], { timeZone: 'Europe/Warsaw' }).slice(0, -3)}]` : '>>>>**'}` })));
     }
 }

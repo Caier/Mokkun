@@ -25,14 +25,35 @@ export default class {
             await ctx.followUp({ embeds: [SafeEmbed.quick('Nieprawidłowy przewoźnik lub przystanek')] });
             return;
         }
-        const embed = async () => provider.departuresToEmbed(await provider.getDepartures(stop));
-        const msg = await ctx.followUp({ embeds: [await embed()], fetchReply: true, components: [new ActionRowBuilder<ButtonBuilder>().addComponents([new ButtonBuilder().setCustomId('o').setEmoji('🔄').setStyle(ButtonStyle.Secondary)])] });
+
+        let page = 0;
+        let embeds = provider.departuresToEmbed(await provider.getDepartures(stop)).populateEmbeds(5);
+        let components = [new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId('o').setEmoji('🔄').setStyle(ButtonStyle.Success))];
+        if(embeds.length > 1)
+            components[0].addComponents(new ButtonBuilder().setCustomId('b').setStyle(ButtonStyle.Secondary).setEmoji('◀').setDisabled(true),
+                new ButtonBuilder().setCustomId('n').setStyle(ButtonStyle.Secondary).setEmoji('▶'));
+
+        const msg = await ctx.followUp({ embeds: [embeds[page]], fetchReply: true, components });
         let coll = msg.createMessageComponentCollector({ idle: Utils.parseTimeStrToMilis('2h') });
         coll.on('collect', async int => {
-            setTimeout(() => int.deferUpdate().catch(() => {}), 2700);
-            await msg.edit({ embeds: [await embed()] });
-            int.deferUpdate().catch(() => {});
+            components.forEach(c => c.components.forEach(c => c.setDisabled(true)));
+            await int.update({ components });
+
+            if(int.customId == 'o') {
+                page = 0;
+                embeds = provider.departuresToEmbed(await provider.getDepartures(stop)).populateEmbeds(5);
+                components = [new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId('o').setEmoji('🔄').setStyle(ButtonStyle.Success))];
+                if(embeds.length > 1)
+                    components[0].addComponents(new ButtonBuilder().setCustomId('b').setStyle(ButtonStyle.Secondary).setEmoji('◀').setDisabled(true),
+                        new ButtonBuilder().setCustomId('n').setStyle(ButtonStyle.Secondary).setEmoji('▶'));
+                await msg.edit({ embeds: [embeds[page]], components });
+            } else {
+                page += int.customId == 'n' ? 1 : -1;
+                components.forEach(c => c.components.forEach((c, i) => c.setDisabled(i != 0 && ((page == 0 && i == 1) || (page == embeds.length - 1 && i == 2)))));
+                await msg.edit({ embeds: [embeds[page]], components });
+            }
         }).on('end', () => {
+            components.forEach(c => c.components.forEach(c => c.setDisabled(true)));
             msg.edit({ components: [] }).catch(()=>{});
         }).on('error', err => ctx.handleError(err));
     }
