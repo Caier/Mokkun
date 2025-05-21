@@ -50,8 +50,6 @@ class Mokkun extends Discord.Client {
             return temp;
         }
         db.save = (query, data) => {
-            if(data === undefined)
-                throw Error("Data parameter is required");
             query = query.split(".");
             let temp = db;
             for(let q of query.slice(0, -1)) {
@@ -114,10 +112,15 @@ class Mokkun extends Discord.Client {
 
         if(!msg.content.startsWith(prefix) || msg.author.bot) return;
         let args = this.getArgs(msg.content, prefix);
-        if(msg.author.id != this.vars.BOT_OWNER && (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0])) {
-            msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale!**`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
+        if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
+            msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale/serwerze!**`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
             return;
         }
+        // let cooldown = this._checkForCooldown(msg, args[0]);
+        // if(cooldown) {
+        //     msg.channel.send(this.embgen(this.sysColor, `Chwila bro, ta komenda jest chłodna.\nBędziesz mógł jej użyć za ${cooldown}`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
+        //     return;
+        // }
 
         try {
             if(this.commands.has(args[0])) {
@@ -183,35 +186,35 @@ class Mokkun extends Discord.Client {
         }
     }
 
-    getArgs(content, prefix, splitter, freeargs = 1) {
-        let msg = content.slice(prefix.length);
-        if(!splitter) return msg.split(" ");
+    // _checkForCooldown(msg, cmd) {
+    //     let coolTime = this.db.get(`Data.${msg.channel.id}.cooldown.${msg.author.id}.${cmd}`);
+    //     if(coolTime) {
+    //         let timeLeft = coolTime - Date.now();
+    //         if(timeLeft <= 0)
+    //             this.db.save(`Data.${msg.channel.id}.cooldown.${msg.author.id}`, undefined);
+    //         else
+    //             return timeLeft;
+    //     }
+    //     return false;
+    // }
 
-        let argtab = [];
-        let spacecnt = 0;
-        let wrdcur = "";
-
-        for(let i = 0; i < msg.length; i++) {
-            if(msg[i] === ' ' && (msg[i-1] === ' ' || msg[i-1] === splitter))
-                continue;
-            if(msg[i] != splitter) {
-                if((msg[i] === ' ' && spacecnt >= freeargs) || msg[i] != ' ')
-                    wrdcur += msg[i];
-                else if(msg[i] === ' ' && spacecnt < freeargs) {
-                    argtab.push(wrdcur);
-                    wrdcur = "";
-                    spacecnt += 1;
-                }
-            }
-            else {
-                argtab.push(wrdcur);
-                wrdcur = "";
-            }
+    getArgs(content, prefix, splitter, freeargs, arrayExpected) {
+        content = content.slice(prefix.length);
+        let args = [];
+        if(splitter) 
+            content = content.split(splitter);
+        args.push(...(splitter ? content[0] : content).split(" ").map(v => v.trim()).filter(v => v != " " && v != ""));
+        if(freeargs)
+            args = [...args.slice(0,freeargs), args.slice(freeargs).join(" ")];
+        if(splitter)
+            args.push(...content.slice(1).map(v => v.trim()));
+        while(arrayExpected && args.some(v => v[0] == '[') && args.some(v => v[v.length-1] == ']')) {
+            let beg = args.findIndex(v => v[0] == '[');
+            let end = args.findIndex(v => v[v.length-1] == ']')+1;
+            if(end <= beg) break;
+            args = [...args.slice(0, beg), [...args.slice(beg, end).join("").split(",").map(v => v[0] == '[' && v.slice(1) || v).map(v => v.endsWith(']') && v.slice(0, -1) || v)], ...args.slice(end)];
         }
-
-        if(wrdcur) argtab.push(wrdcur);
-    
-        return argtab;
+        return args;
     }
 
     embgen(color = Math.floor(Math.random() * 16777215), content) {
@@ -236,6 +239,23 @@ class Mokkun extends Discord.Client {
         let cnt = 0;
         msgs = msgs.filter(() => {cnt++; return cnt <= much})
         return msgs;
+    }
+
+    parseTimeStrToMilis(timeStr) {
+        if(!/([0-9]+[Mdhms]+)+/.test(timeStr)) 
+            return -1;
+        let timeInc = {"M": 0, "d": 0, "h": 0, "m": 0, "s": 0};
+        for(let x of Object.keys(timeInc)) {
+            if(timeStr.includes(x)) {
+                let temp = timeStr.slice(0, timeStr.indexOf(x)).split("").reverse().join("").trim();
+                if(/[A-z]/.test(temp))
+                    temp = temp.slice(0, temp.search(/[A-z]/g)).split("").reverse().join("");
+                else
+                    temp = temp.split("").reverse().join("");
+                timeInc[x] += +temp;
+            }
+        }
+        return (timeInc["M"] * 2629743 + timeInc["d"] * 86400 + timeInc["h"] * 3600 + timeInc["m"] * 60 + timeInc["s"]) * 1000;
     }
 }
 
