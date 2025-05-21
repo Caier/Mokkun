@@ -32,7 +32,7 @@ module.exports = {
             dir = dir.replace(mainDir, "") || "głównym";
             let out = emb().setTitle(`**Pliki w katalogu ${dir}:**`);
             let str = '';
-            for(var x of files)
+            for(let x of files)
                 str += x + '\n';
             if(str.length < 2040) {
                 out.setDescription(str);

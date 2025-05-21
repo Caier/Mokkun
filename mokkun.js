@@ -27,7 +27,7 @@ class Mokkun extends Discord.Client {
     _ensureDirs() {
         let dirs = [path.join(__dirname, "files", "temp"),
                     path.join(__dirname, "files", "global")];
-        for(var dir of dirs)
+        for(let dir of dirs)
             fs.ensureDirSync(dir);
     }
 
@@ -42,7 +42,7 @@ class Mokkun extends Discord.Client {
         db.get = (query) => {
             query = query.split(".");
             let temp = db[query.shift()];
-            for(var q of query)
+            for(let q of query)
                 if(temp === undefined) 
                     break;
                 else   
@@ -54,7 +54,7 @@ class Mokkun extends Discord.Client {
                 throw Error("Data parameter is required");
             query = query.split(".");
             let temp = db;
-            for(var q of query.slice(0, -1)) {
+            for(let q of query.slice(0, -1)) {
                 if(temp[q] === undefined) 
                     temp[q] = {};
                 temp = temp[q]
@@ -70,12 +70,12 @@ class Mokkun extends Discord.Client {
         let cmds = new Discord.Collection();
         let cmdir = path.join(__dirname, "commands");
         let cmdFiles = fs.readdirSync(cmdir).filter(f => f.endsWith(".js"));
-        for(var cmdName of cmdFiles) {
+        for(let cmdName of cmdFiles) {
             let cmdals = [cmdName.slice(0, -3)];
             let temp = require(path.join(cmdir, cmdName));
             if(temp.aliases)
                 cmdals.push(...temp.aliases);
-            for(var alias of cmdals)
+            for(let alias of cmdals)
                 cmds.set(alias, temp)
         }
         return cmds;
@@ -154,12 +154,12 @@ class Mokkun extends Discord.Client {
         
         if(news.data_wygenerowania == prevRes.data_wygenerowania) return;
 
-        for (var x of news.komunikaty)
+        for (let x of news.komunikaty)
         {
             let embed = new this.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
-            for(var c of newsSubs.users)
+            for(let c of newsSubs.users)
                 this.users.get(c).send(embed);
-            for(var c of newsSubs.channels)
+            for(let c of newsSubs.channels)
                 this.channels.get(c).send(embed)
         }
 
@@ -169,7 +169,7 @@ class Mokkun extends Discord.Client {
     async _reminders() {
         let rems = this.db.get(`System.reminders`);
 
-        for(var x of rems)
+        for(let x of rems)
         {
             if(x.boomTime - Date.now() <= 0)
             {
@@ -191,7 +191,7 @@ class Mokkun extends Discord.Client {
         let spacecnt = 0;
         let wrdcur = "";
 
-        for(var i = 0; i < msg.length; i++) {
+        for(let i = 0; i < msg.length; i++) {
             if(msg[i] === ' ' && (msg[i-1] === ' ' || msg[i-1] === splitter))
                 continue;
             if(msg[i] != splitter) {
