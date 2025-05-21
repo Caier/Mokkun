@@ -97,7 +97,7 @@ class Mokkun extends Discord.Client {
     _onReady() {
         console.log(`(re)Logged in as ${this.user.tag}`);
         if(this.db.System.presence) {
-            this.user.setActivity(this.db.System.presence.name, {type: this.db.System.presence.type});
+            this.user.setActivity(this.db.System.presence.name, {type: this.db.System.presence.type.toUpperCase()});
         }
     }
 
