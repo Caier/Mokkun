@@ -5,7 +5,7 @@ const ztm = require("./ztm");
 const isOnline = require('is-online');
 
 class Mokkun extends Discord.Client {
-    constructor(vars = {}, color = "#FFFFFF") {
+    constructor(vars = {}, color = "#FFFFFE") {
         super();
         this.sysColor = color;
         this.RichEmbed = Discord.RichEmbed;
