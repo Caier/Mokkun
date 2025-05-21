@@ -4,10 +4,11 @@ module.exports = {
     name: 'gb',
     description: 'G E L B O O R U - obrazki thotów na wyciągnięcie ręki',
     usage: '`$pgb {wyszukanie} | (opcjonalnie){ilość wyników max. 10}` - zobacz sam',
+    cooldown: 30000,
     async execute(msg, args, bot)
     {
         const [embgen, getArgs] = [bot.embgen, bot.getArgs];
-        args = getArgs(msg.content, msg.prefix, "|");
+        args = getArgs(msg.content, msg.prefix, "|", 1);
         const color = "#006ffa";
 
         msg.channel.send(embgen(color, `Zbieranie postów...`)).then(async msgn => 
