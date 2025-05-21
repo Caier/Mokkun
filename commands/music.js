@@ -24,7 +24,7 @@ module.exports = {
         if(args[0] == 'music') args.shift();
 
         switch(args[0]) {
-            case 'play' || 'playtop': {
+            case 'play': case 'playtop': {
                 if(!args[1] && queue.playing && queue.playing.dispatcher && queue.playing.dispatcher.paused) {
                     queue.resume();
                     msg.channel.send(emb('Wznowiono odtwarzanie ⏯'));
@@ -42,7 +42,7 @@ module.exports = {
                 queue.addEntry(new MusicEntry({vid: vid[0], member: msg.member, queue: queue, type: "yt"}), await msg.member.voice.channel.join(), args[0] == 'playtop');
             } break;
 
-            case 'sc' || 'sctop': {
+            case 'sc': case 'sctop': {
                 if(!args[1]) {
                     msg.channel.send(emb('Co mam odtworzyć?'));
                     return;
