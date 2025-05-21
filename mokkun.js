@@ -214,7 +214,7 @@ class Mokkun extends Discord.Client {
         return argtab;
     }
 
-    embgen(color, content) {
+    embgen(color = Math.floor(Math.random() * 16777215), content) {
         return new Discord.RichEmbed().setColor(color).setDescription(content);
     }
 
