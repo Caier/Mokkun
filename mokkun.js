@@ -114,6 +114,11 @@ class Mokkun extends Discord.Client {
 
         if(!msg.content.startsWith(prefix) || msg.author.bot) return;
         let args = this.getArgs(msg.content, prefix);
+        if(msg.author.id != this.vars.BOT_OWNER && (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0])) {
+            msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale!**`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
+            return;
+        }
+
         try {
             if(this.commands.has(args[0])) {
                 let cmd = this.commands.get(args[0]);
