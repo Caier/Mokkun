@@ -25,7 +25,7 @@ module.exports = {
         
         let smsg;
         await msg.channel.send(bot.embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
-        let msgss = await bot.fetchMsgs(msg, parseInt(args[1]), (args[2]) ? msg.mentions.members.first().id : false, msg.id);
+        let msgss = await bot.fetchMsgs(msg, parseInt(args[1]), (msg.mentions.members.first()) ? msg.mentions.members.first().id : false, msg.id);
         smsg.delete(100);
 
         if(msgss.size == 0) {
@@ -50,11 +50,11 @@ module.exports = {
                 {
                     msg.delete(100);
                     msgg.delete(100);
-                    msg.channel.bulkDelete(msgss).catch(async e => {
+                    msg.channel.bulkDelete(msgss).catch(async () => {
                         let nmsg;
                         await msg.channel.send(bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
                         let job = msgss.deleteAll();
-                        job[job.length - 1].then(f => nmsg.delete(100));
+                        job[job.length - 1].then(() => nmsg.delete(100));
                     });
                 }
                 else 
