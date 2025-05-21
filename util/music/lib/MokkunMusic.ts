@@ -6,7 +6,9 @@ import yts from '@caier/yts';
 import { VideoEntry } from '@caier/yts/lib/interfaces';
 import uuid from 'uuid/v4';
 import sc from '@caier/sc';
-import { SongEntry } from '@caier/sc/out/interfaces';
+import { TrackEntry } from '@caier/sc/out/interfaces';
+import { LoggedError } from '../../errors/out/errors';
+import { Readable } from 'stream';
 
 export class MusicEntry {
     id: string = uuid();
@@ -14,10 +16,10 @@ export class MusicEntry {
     addedBy: GuildMember;
     queue: MusicQueue;
     type: "yt"|"sc";
-    videoInfo: VideoEntry | SongEntry;
+    videoInfo: VideoEntry | TrackEntry;
     dispatcher?: StreamDispatcher;
 
-    constructor(opts: {vid: VideoEntry | SongEntry, member: GuildMember, queue: MusicQueue, type: "yt"|"sc"}) {
+    constructor(opts: {vid: VideoEntry | TrackEntry, member: GuildMember, queue: MusicQueue, type: "yt"|"sc"}) {
         this.addedBy = opts.member;
         this.queue = opts.queue;
         this.type = opts.type;
@@ -69,20 +71,28 @@ export class MusicQueue {
             this._finish();
     }
 
-    async play(entry: MusicEntry) {
+    private async play(entry: MusicEntry, retries = 0) {
         if(this.VoiceCon.status != '0') 
             throw Error('VoiceConnection is not ready');
         let str;
         if(entry.type == 'yt')
             str = await MokkunMusic.getYTStream(entry.videoInfo.url);
         else if(entry.type == 'sc')
-            str = await sc.download((entry.videoInfo as SongEntry).id);
-        (<NodeJS.ReadableStream> str).on('end', () => setTimeout(() => this._playNext(), 2000));
+            str = await sc.download((entry.videoInfo as TrackEntry).id, true);
+        (<Readable> str).on('end', () => setTimeout(() => this._playNext(), 2000));
         (<MusicEntry> this.playing).dispatcher = this.VoiceCon.play(str, {type: 'opus', highWaterMark: 1});
         this.playing?.dispatcher?.setFEC(true);
+        if(!this.playing?.dispatcher) {
+            (<Readable> str)?.destroy();
+            if(retries > 2) {
+                this._playNext();
+                throw new LoggedError(this.outChannel, "Cannot attach StreamDispatcher");
+            }
+            await new Promise(r => setTimeout(() => this.play(entry, retries + 1) && r(), 1000));
+        }
     }
 
-    _finish() {
+    private _finish() {
         this.playing?.dispatcher?.pause?.();
         if(this.playing)
             this.history.push(this.playing);
@@ -93,7 +103,7 @@ export class MusicQueue {
         }, 600000);
     }
 
-    set destTimer(timer: NodeJS.Timeout) {
+    private set destTimer(timer: NodeJS.Timeout) {
         this.timer && clearTimeout(this.timer);
         this.timer = timer;
     }
@@ -115,13 +125,14 @@ export class MusicQueue {
         } 
         else if(what == 'addedToQueue') {
             let entry : MusicEntry = arguments[1];
+            let pos = this.queue.findIndex(v => v.id == entry.id) + 1;
             embed.setAuthor('Dodano do kolejki')
             .setDescription(`**[${entry.videoInfo.name}](${entry.videoInfo.url})**`)
             .setThumbnail(entry.videoInfo.thumbnail)
             .addField("Kanał", entry.videoInfo.author.name, true)
             .addField("Długość", entry.videoInfo.duration, true)
-            .addField("Za", this.timeLeft, true)
-            .addField("Pozycja", this.queue.findIndex(v => v.id == entry.id) + 1);
+            .addField("Za", pos == 1 ? this.playing?.timeLeft : this.timeLeft, true)
+            .addField("Pozycja", pos);
         }
         else if(what == 'removed') {
             let entry : MusicEntry = arguments[1];
@@ -133,7 +144,7 @@ export class MusicQueue {
             return embed;
         this.outChannel.send(embed);
     }
-    //zła pozycja przy playtopp
+    
     get milisLeft() {
         let len = (this.playing?.videoInfo.milis || 0) - (this.playing?.strTime || 0);
         for(let ent of this.queue.slice(0, -1))
@@ -173,10 +184,6 @@ export class MusicQueue {
 
 export class MokkunMusic {
     private queues = new Collection<string, MusicQueue>();
-
-    constructor() {
-        sc.setClientId(process.env.SC_CLIENT_ID as string);
-    }
 
     getQueue(guild: Guild) : MusicQueue {
         let q = this.queues.get(guild.id);

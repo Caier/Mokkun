@@ -1,9 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",                   
-    "module": "commonjs",
-    "types": ["node"],    
-    "typeRoots": ["node_modules/@types"],          
+    "module": "commonjs",                 
     "declaration": true,                  
     "declarationMap": true,               
     "outDir": "./out",                    

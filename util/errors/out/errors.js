@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+class LoggedError extends Error {
+    constructor(channel, message) {
+        super(message);
+        this.channel = channel;
+    }
+}
+exports.LoggedError = LoggedError;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZXJyb3JzLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiLi4vbGliL2Vycm9ycy50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiOztBQUVBLE1BQWEsV0FBWSxTQUFRLEtBQUs7SUFHbEMsWUFBWSxPQUFxQixFQUFFLE9BQWdCO1FBQy9DLEtBQUssQ0FBQyxPQUFPLENBQUMsQ0FBQztRQUNmLElBQUksQ0FBQyxPQUFPLEdBQUcsT0FBTyxDQUFDO0lBQzNCLENBQUM7Q0FDSjtBQVBELGtDQU9DIiwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgVGV4dENoYW5uZWwgfSBmcm9tICdkaXNjb3JkLmpzJztcclxuXHJcbmV4cG9ydCBjbGFzcyBMb2dnZWRFcnJvciBleHRlbmRzIEVycm9yIHtcclxuICAgIHB1YmxpYyBjaGFubmVsPzogVGV4dENoYW5uZWw7XHJcblxyXG4gICAgY29uc3RydWN0b3IoY2hhbm5lbD86IFRleHRDaGFubmVsLCBtZXNzYWdlPzogc3RyaW5nKSB7IFxyXG4gICAgICAgIHN1cGVyKG1lc3NhZ2UpO1xyXG4gICAgICAgIHRoaXMuY2hhbm5lbCA9IGNoYW5uZWw7XHJcbiAgICB9XHJcbn0iXX0=
