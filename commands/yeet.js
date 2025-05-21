@@ -1,11 +1,9 @@
-const { fetchMsgs, embgen } =  require("../setup");
-
 module.exports = {
     name: 'yeet',
     description: 'b e z p i e c z n i e  usuwa wiadomości',
-    usage: '`yeet {liczba wiadomości do skasowania} (opcjonalnie){czyje wiadomości}`',
+    usage: '`$pyeet {liczba wiadomości do skasowania} (opcjonalnie){czyje wiadomości}`',
     notdm: true,
-    async execute(msg, args)
+    async execute(msg, args, bot)
     {
         let glassji;
         const color = '#93c0ff';
@@ -21,23 +19,23 @@ module.exports = {
         if(!/^[0-9]+$/.test(args[1])) return;
        
         if(parseInt(args[1]) > max) {
-            msg.channel.send(embgen(color, `Możesz maksymalnie usunąć ${max} wiadomości`));
+            msg.channel.send(bot.embgen(color, `Możesz maksymalnie usunąć ${max} wiadomości`));
             return;
         }
         
         let smsg;
-        await msg.channel.send(embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
-        let msgss = await fetchMsgs(msg, parseInt(args[1]), (args[2]) ? msg.mentions.members.first().id : false, msg.id);
+        await msg.channel.send(bot.embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
+        let msgss = await bot.fetchMsgs(msg, parseInt(args[1]), (args[2]) ? msg.mentions.members.first().id : false, msg.id);
         smsg.delete(100);
 
         if(msgss.size == 0) {
             let nmsg;
-            msg.channel.send(embgen(color, "Nie znaleziono żadnych wiadomości!")).then(nmsgg => nmsg = nmsgg);
+            msg.channel.send(bot.embgen(color, "Nie znaleziono żadnych wiadomości!")).then(nmsgg => nmsg = nmsgg);
             await setTimeout(() => {nmsg.delete(100); msg.delete(100);}, 4000);
             return;
         }
 
-        msg.channel.send(embgen(color, `Czy chcesz usunąć **${msgss.size}** wiadomości${(msg.mentions.members.first() != undefined) ? ` od użytkownika **${msg.mentions.members.first().user.tag}**` : ``}?\nZareaguj aby potwierdzić`)).then(async msgg => 
+        msg.channel.send(bot.embgen(color, `Czy chcesz usunąć **${msgss.size}** wiadomości${(msg.mentions.members.first() != undefined) ? ` od użytkownika **${msg.mentions.members.first().user.tag}**` : ``}?\nZareaguj aby potwierdzić`)).then(async msgg => 
         {
             let eventL;
             setTimeout(() => bot.removeListener("messageReactionAdd", eventL), 600000);
@@ -54,14 +52,14 @@ module.exports = {
                     msgg.delete(100);
                     msg.channel.bulkDelete(msgss).catch(async e => {
                         let nmsg;
-                        await msg.channel.send(embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
+                        await msg.channel.send(bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
                         let job = msgss.deleteAll();
                         job[job.length - 1].then(f => nmsg.delete(100));
                     });
                 }
                 else 
                 {
-                    await msgg.edit(embgen(color, "Wiadomości nie zostaną usunięte"));
+                    await msgg.edit(bot.embgen(color, "Wiadomości nie zostaną usunięte"));
                     setTimeout(() => {msg.delete(100); msgg.delete(100);}, 4000);
                 }
 

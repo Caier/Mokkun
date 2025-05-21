@@ -1,30 +1,16 @@
 module.exports = {
     name: 'help',
     description: 'pomoc',
-    usage: 'help {nazwa komendy}',
-    execute(msg, args)
+    usage: '`$phelp {nazwa komendy}`',
+    execute(msg, args, bot)
     {
-        data = [];
-
-      if(args.length < 2){
-        data.push('Lista komend:');
-        data.push(commands.map(command => command.name).join(", "));
-        data.push('\nWpisz `help {nazwa komendy}` aby uzyskać pomoc co do specyficznej komendy!');
-
-        msg.channel.send(data);
-        }
-        else {
-            const command = commands.get(args[1]);
-
-            if(!command)
-                msg.channel.send("To nie jest prawidłowa komenda...");
-
-            data.push(`**Nazwa:** ${command.name}`);
-
-            if(command.description) data.push(`**Opis:** ${command.description}`);
-            if(command.usage) data.push(`**Używanie:** ${command.usage}`);
-
-            msg.channel.send(data);
-        }
+        let color = '#ffafee'
+        if(!args[1])
+            msg.channel.send(bot.embgen(color, `**Lista komend:**\n${bot.commands.keyArray().join(", ")}\n\nAby dowiedzieć się więcej o danej komendzie wpisz \`${msg.prefix}help {nazwa komendy}\``));
+        else 
+            if(bot.commands.has(args[1])) {
+                let cmd = bot.commands.get(args[1]);
+                msg.channel.send(bot.embgen(color, `**Komenda: **${args[1]} (${cmd.name})\n\n**Opis: **${cmd.description}\n\n**Uzywanie: **${cmd.usage.replace(/\$p/g, msg.prefix)}`));
+            }
     }
 }

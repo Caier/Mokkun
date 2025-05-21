@@ -1,29 +1,11 @@
-const setup = require("../setup");
 const uuidv4 = require("uuid/v4");
-const fs = require("fs");
-const config = require("../config.json");
-const vars = config.settings.variables;
 
 module.exports = {
     name: 'remind',
     description: 'Tworzenie i zarządzanie przypomnieniami',
-    usage: '\`remind add {gdzie (może być puste == tutaj)} {za ile? przykład: 1M30d24h60m} | {co przypomnieć}\` - tworzy przypomnienie\n\`remind rem {id przypomnienia} - usuwa\`\n\`remind list\` - listuje przypomnienia',
-    execute(msg, args)
+    usage: '\`$premind add {gdzie (może być puste == tutaj)} {za ile? przykład: 1M30d24h60m} | {co przypomnieć}\` - tworzy przypomnienie\n\`$premind rem {id przypomnienia} - usuwa\`\n\`$premind list\` - listuje przypomnienia',
+    execute(msg, args, bot)
     {
-        if(msg.channel.type == 'dm')
-        {
-            msg.channel.send("Niestety nie można korzystać z tej komendy na PRIV");
-            return;
-        }
-
-        if(fs.existsSync(`${vars.reminders}/${msg.guild.id}/reminders.json`))
-            remFile = JSON.parse(fs.readFileSync(`${vars.reminders}/${msg.guild.id}/reminders.json`).toString());
-        else
-        { 
-            fs.writeFileSync(`${vars.reminders}/${msg.guild.id}/reminders.json`, "[]");
-            remFile = [];
-        }
-
         if(args[1] == "add")
         {
             rem = {};
@@ -32,13 +14,14 @@ module.exports = {
             rem.author = msg.author.id;
             rem.authorLit = msg.author.tag;
             rem.createdAt = Date.now();
+            rem.createdIn = msg.channel.id;
             rem.where = {};
-            rem.content = setup.getArgs(msg.content, "|").slice(2);
+            rem.content = bot.getArgs(msg.content, msg.prefix, "|").slice(2);
 
             test = /((<@!?)|(<#))(?=[0-9]{18}(?=>$))/;
 
             rem.where.isUser = ((test.test(args[2]) && args[2].includes("@")) || msg.channel.type == 'dm') ? true : false;
-            rem.where.channel = (test.test(args[2])) ? args[2].replace(/[\\<>@#&!]/g, "") : msg.channel.id;
+            rem.where.channel = (test.test(args[2])) ? args[2].replace(/[\\<>@#&!]/g, "") : (msg.channel.type == 'dm') ? msg.author.id : msg.channel.id;
            
             timeInc = {"M": 0, "d": 0, "h": 0, "m": 0};
             timeTest = /([0-9]+[Mdhm]+)+/;
@@ -71,36 +54,32 @@ module.exports = {
 
             applied = (rem.where.isUser) ? "@" + rem.where.channel : "#" + rem.where.channel;
 
-            embed = new Discord.RichEmbed().setColor("#007F00").setDescription(`Ustawiono przypomienie w <${applied}>\nWiadomość: \`${rem.content}\`\nKiedy: \`${new Date(rem.boomTime)}\``).setFooter(`id: ${rem.id}`);
+            embed = new bot.RichEmbed().setColor("#007F00").setDescription(`Ustawiono przypomienie w <${applied}>\nWiadomość: \`${rem.content}\`\nKiedy: \`${new Date(rem.boomTime)}\``).setFooter(`id: ${rem.id}`);
             
-            remFile.push(rem);
+            bot.db.System.reminders.push(rem);
+            bot.db.save();
 
-            try {
-               fs.writeFileSync(`${vars.reminders}/${msg.guild.id}/reminders.json`, JSON.stringify(remFile));
-               msg.channel.send(embed);
-            } catch (e) {
-               msg.channel.send(e.message);
-            }
-
-            console.log(rem);
+            msg.channel.send(embed);
         }
+
         else if(args[1] == "rem" && args[2] && /^[A-F\d]{8}-[A-F\d]{4}-4[A-F\d]{3}-[89AB][A-F\d]{3}-[A-F\d]{12}$/i.test(args[2]))
         {
-            remFile = remFile.filter(e => {return e.id != args[2];});
-            fs.writeFileSync(`${vars.reminders}/${msg.guild.id}/reminders.json`, JSON.stringify(remFile));
-            msg.channel.send("Usunięto");
+            bot.db.System.reminders = bot.db.System.reminders.filter(e => e.id != args[2]);
+            bot.db.save();
+            msg.channel.send(bot.embgen("#007F00", "Usunięto przypomnienie"));
         }
+
         else if(args[1] == "list")
         {
-            ewe = ``;
+            let ewe = ``;
 
-            for(x of remFile)
+            for(x of bot.db.System.reminders.filter(r => r.createdIn == msg.channel.id || r.where.channel == msg.guild && msg.guild.id || msg.channel.id))
             {
-                ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime)}\`\n**id:** \`${x.id}\`\n\n`;
+                ewe += `\`${x.content}\`\n**Kiedy:** \`${new Date(x.boomTime)}\`\n**w:** <${(x.where.isUser) ? "@" + x.where.channel : "#" + x.where.channel}>\n**id:** \`${x.id}\`\n\n`;
             }
 
             if(ewe.length < 1950)
-                msg.channel.send(new Discord.RichEmbed().setColor("#007F00").setDescription(ewe));
+                msg.channel.send(new bot.RichEmbed().setColor("#007F00").setDescription((ewe.length == 0) ? "Brak" : ewe));
             else
                 msg.channel.send(ewe, {split: true});
         }

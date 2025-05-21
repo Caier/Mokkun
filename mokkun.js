@@ -1,88 +1,226 @@
-      Discord = require("discord.js");
-      bot =     new Discord.Client();
-const config =  require("./config.json");
-const { setup, embgen, getArgs } = require("./setup");
-const fs =      require("fs");
-const { isEqual } = require("underscore");
-const dotenv = require('dotenv');
-      dotenv.config(); 
+const Discord = require("discord.js");
+const fs = require("fs");
+const path = require("path");
+const ztm = require("./ztm");
+const isOnline = require('is-online');
 
-exports.sendMsg = function(target, address, content){              
-    if(target == 'channel')
-        bot.channels.get(address).send(content);
-    else if(target == 'user')
-        bot.users.get(address).send(content);
-}
-
-if(!process.env.TOKEN || !process.env.PREFIX || !process.env.BOT_OWNER) {
-    console.log(`Brak${(!process.env.TOKEN) ? ' tokena,' : ''}${(!process.env.PREFIX) ? ' prefixu,': ''}${(!process.env.BOT_OWNER) ? ' id ownera bota' : ''}`);
-    process.exit(1);
-}
-
-setup();                                                            
-
-bot.login(process.env.TOKEN).catch(e => {console.error(e); process.exit(1);});
-
-const color = '#ffffff';
-prefix = process.env.PREFIX;
-commands = new Discord.Collection();
-commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-
-for (file of commandFiles) {
-	command = require(`./commands/${file}`);
-	commands.set(command.name, command);
-}
-
-bot.on("error", err => console.error(err.message)); //temporary fix for an unknown websocket exception
-
-bot.on("message", async msg => 
-{
-    if (!msg.content.startsWith(prefix) || msg.author.bot) return;
-
-    if(msg.channel.type != 'dm')
-        if (!fs.existsSync(`./filespace/${msg.guild.id}`)) 
-            fs.mkdirSync(`./filespace/${msg.guild.id}`);
-    else
-        if (!fs.existsSync(`./filespace/${msg.channel.id}`)) 
-            fs.mkdirSync(`./filespace/${msg.channel.id}`);
-    
-    let userStorage = {};
-    if(fs.existsSync(`./filespace/${msg.author.id}/userstorage.json`))
-        userStorage = JSON.parse(fs.readFileSync(`./filespace/${msg.author.id}/userstorage.json`));
-    msg.author.storage = Object.assign({}, userStorage);
-
-    const args = getArgs(msg.content);
-    const command = args[0];
-    const filter = (fs.existsSync(config.settings.variables.lockcom)) ? JSON.parse(fs.readFileSync(config.settings.variables.lockcom)) : [];
-
-    if (!commands.has(command)) return;
-
-    if (filter.includes(command))
-    {
-        msg.channel.send(embgen(color, `Komenda została zablokowana`));
-        return;
+class Mokkun extends Discord.Client {
+    constructor(vars = {}, color = "#FFFFFF") {
+        super();
+        for(var name in vars)
+            process.env[name] = vars[name];
+        this._ensureVars();
+        this.db = this._getDatabase();
+        this.commands = this._loadCommands();
+        this.sysColor = color;
+        this.RichEmbed = Discord.RichEmbed;
+        this._start();
     }
 
-    if (commands.get(command).ownerOnly && msg.author.id != process.env.BOT_OWNER)
-    {
-        msg.channel.send(embgen(color, `Z komendy może korzystać tylko owner bota`));
-        return;
+    _ensureVars() {
+        let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
+        let missingVars = reqVars.filter(env => typeof(process.env[env]) === 'undefined')
+        if(missingVars.length > 0)
+            throw Error("Missing Required Env Vars: " + missingVars.join(", "));
     }
 
-    if (msg.channel.type == 'dm' && commands.get(command).notdm)
-    {
-        msg.channel.send(embgen(color, `Z tej komendy nie można korzystać na PRIV!`));
-        return;
-    }
-
-    try {
-        await commands.get(command).execute(msg, args);
-        if(!isEqual(userStorage, msg.author.storage)) {
-            fs.existsSync(`./filespace/${msg.author.id}`) || fs.mkdirSync(`./filespace/${msg.author.id}`);
-            fs.writeFileSync(`./filespace/${msg.author.id}/userstorage.json`, JSON.stringify(msg.author.storage));
+    _getDatabase() {
+        let db;
+        try {
+            db = JSON.parse(fs.readFileSync(path.join(__dirname, process.env.DB_PATH)));
+        } catch(e) {
+            throw Error("Unable to access provided database");
         }
-    } catch (err) {
-        console.error(err);
-        msg.channel.send(embgen(color, "Wystąpił błąd podczas wykonywania komendy\n\n" + err));
+        db.save = () => {
+            fs.writeFileSync(path.join(__dirname, process.env.DB_PATH), JSON.stringify(this.db, null, 2));
+        }
+        return db;
     }
-});
+
+    _loadCommands() {
+        let cmds = new Discord.Collection();
+        let cmdir = path.join(__dirname, "commands");
+        let cmdFiles = fs.readdirSync(cmdir).filter(f => f.endsWith(".js"));
+        for(var cmdName of cmdFiles) {
+            let cmdals = [cmdName.slice(0, -3)];
+            let temp = require(path.join(cmdir, cmdName));
+            if(temp.aliases)
+                cmdals.push(...temp.aliases);
+            for(var alias of cmdals)
+                cmds.set(alias, temp)
+        }
+        return cmds;
+    }
+
+    _start() {
+        this.login(process.env.TOKEN);
+        this.once("ready", () => this.setInterval(() => this._loops(), 30000));
+        this.on("ready", () => this._onReady());
+        this.on("message", msg => this._onMessage(msg));
+        this.on("disconnect", () => this._reconnect());
+        this.on("error", err => console.error("Websocket error: " + err.message));
+        this.on("reconnecting", () => console.log("Reconnecting to Discord..."));
+    }
+
+    _reconnect() {
+        console.error("Kardynalny connecton with discord error, retrying in 30 seconds.");
+        setTimeout(() => this.login(process.env.TOKEN).catch(e => this.reconnect(e)), 30000);
+    }
+
+    _onReady() {
+        console.log(`(re)Logged in as ${this.user.tag}`);
+        if(this.db.System.presence) {
+            this.user.setPresence({game: {name: this.db.System.presence.name, type: this.db.System.presence.type}});
+        }
+    }
+
+    async _onMessage(msg) {
+        let flag = false;
+        if(!this.db.Data[msg.author.id]) this.db.Data[msg.author.id] = (flag = true) && {type: "user"};
+        if(!this.db.Data[msg.channel.id]) this.db.Data[msg.channel.id] = (flag = true) && {type: "channel"};
+        if(msg.guild && !this.db.Data[msg.guild.id]) this.db.Data[msg.guild.id] = (flag = true) && {type: "guild"};
+        flag && this.db.save();
+
+        let prefix = msg.guild && this.db.Data[msg.guild.id].prefix || '.';
+        msg.prefix = prefix;
+        
+        if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
+            this.db.Data[msg.guild.id].prefix = ".";
+            this.db.save();
+            msg.channel.send(this.embgen(this.sysColor, 'Zresetowano prefix do "."'));
+        }
+
+        if(!msg.content.startsWith(prefix) || msg.author.bot) return;
+        let args = this.getArgs(msg.content, prefix);
+        try {
+            if(this.commands.has(args[0])) {
+                let cmd = this.commands.get(args[0]);
+                if(cmd.ownerOnly && msg.author.id != process.env.BOT_OWNER)
+                    msg.channel.send(this.embgen(this.sysColor, "Z tej komendy może korzystać tylko owner bota!"));
+                else if(cmd.notdm && msg.channel.type == 'dm')
+                    msg.channel.send(this.embgen(this.sysColor, "Z tej komendy nie można korzystać na PRIV!"));
+                else if(cmd.permissions && !msg.member.permissions.toArray().includes(...cmd.permissions))
+                    msg.channel.send(this.embgen(this.sysColor, `Nie posiadasz odpowiednich uprawnień:\n${cmd.permissions.filter(p => !msg.member.permissions.toArray().includes(p)).join("\n")}`));
+                else 
+                    await cmd.execute(msg, args, this);
+            }
+        }
+        catch(err) {
+            console.error(`Error while executing command ${args[0]}: ${err.stack}`);
+            msg.channel.send(this.embgen(this.sysColor, `**Napotkano na błąd podczas wykonywania tej komendy :(**\n${err.message}`));
+        }
+    }
+
+    async _loops() {
+        if(!await isOnline({timeout: 500})) return;
+        this._newsletter();
+        this._reminders();
+    }
+
+    async _newsletter() {
+        let prevRes = (fs.existsSync(path.join(__dirname, this.db.System.files.prevRes))) ? fs.readFileSync(path.join(__dirname, this.db.System.files.prevRes)) : "{}";
+
+        prevRes = JSON.parse(prevRes);
+        let newsSubs = this.db.System.newsSubs;
+
+        let news = await ztm.checkZTMNews();
+        
+        if(news.data_wygenerowania == prevRes.data_wygenerowania) return;
+
+        for (var x of news.komunikaty)
+        {
+            let embed = new this.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
+            for(var c of newsSubs.users)
+                this.users.get(c).send(embed);
+            for(var c of newsSubs.channels)
+                this.channels.get(c).send(embed)
+        }
+
+        fs.writeFileSync(path.join(__dirname, this.db.System.files.prevRes), JSON.stringify(news));
+    }
+
+    async _reminders() {
+        let rems = this.db.System.reminders;
+
+        for(var x of rems)
+        {
+            if(x.boomTime - Date.now() <= 0)
+            {
+                let embed = new this.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
+                let target = (x.where.isUser) ? "users" : "channels";
+                this[target].get(x.where.channel).send(embed);
+                rems = rems.filter(e => e.id != x.id);
+                this.db.System.reminders = rems;
+                this.db.save();
+            }
+        }
+    }
+
+    getArgs(content, prefix, splitter, freeargs = 1) {
+        let msg = content.slice(prefix.length);
+        if(!splitter) return msg.split(" ");
+
+        let argtab = [];
+        let spacecnt = 0;
+        let wrdcur = "";
+
+        for(var i = 0; i < msg.length; i++) {
+            if(msg[i] === ' ' && (msg[i-1] === ' ' || msg[i-1] === splitter || msg[i+1] === splitter))
+                continue;
+            if(msg[i] != splitter) {
+                if((msg[i] === ' ' && spacecnt >= freeargs) || msg[i] != ' ')
+                    wrdcur += msg[i];
+                else if(msg[i] === ' ' && spacecnt < freeargs) {
+                    argtab.push(wrdcur);
+                    wrdcur = "";
+                    spacecnt += 1;
+                }
+            }
+            else {
+                argtab.push(wrdcur);
+                wrdcur = "";
+            }
+        }
+
+        if(wrdcur) argtab.push(wrdcur);
+
+        return argtab;
+    }
+
+    embgen(color, content) {
+        return new Discord.RichEmbed().setColor(color).setDescription(content);
+    }
+
+    async fetchMsgs(msg, much, user, before) {
+        let msgs = await msg.channel.fetchMessages((before) ? {limit: 100, before: before} : {limit: 100});
+        if(msgs.size == 0) return msgs;
+        let fmsg = msgs.last().id;
+        if(user) msgs = msgs.filter(e => e.author.id == user);
+        if(msgs.size != 0) fmsg = msgs.last().id;
+        while(msgs.size < much)
+        {
+            let temp = await msg.channel.fetchMessages({limit: 100, before: fmsg});
+            if(temp.size != 0) fmsg = temp.last().id;
+            else break;
+            if(user) temp = temp.filter(e => e.author.id == user);
+            msgs = msgs.concat(temp);
+            if(temp.size != 0) fmsg = temp.last().id;
+        }
+        let cnt = 0;
+        msgs = msgs.filter(a => {cnt++; return cnt <= much})
+        return msgs;
+    }
+}
+
+module.exports = Mokkun;
+
+function promiseRejectionHandler() {
+    process.on("unhandledRejection", err => 
+        console.error("Unhandled Rejection: " + err.stack));
+}
+
+if(!module.parent) {
+    promiseRejectionHandler();
+    require("dotenv").config();
+    new Mokkun();
+}
