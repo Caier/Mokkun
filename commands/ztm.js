@@ -38,7 +38,7 @@ module.exports = {
                     setTimeout(() => bot.removeListener("message", eventL), 86400000);
                     await nmsg.react('🔄');
                     bot.on("messageReactionAdd", eventL = async (react, user) => {
-                        if(react.message.id != nmsg.id) return;
+                        if(user.id == bot.user.id || react.message.id != nmsg.id) return;
                         if(react.emoji.toString() == '🔄') {
                             react.remove(user.id);
                             nmsg.edit(new embedEstimates(await ztm.getSIP(this.data.numerTras)));
@@ -118,7 +118,7 @@ module.exports = {
                 bot.db.save(`System.newsSubs.${type}`, bot.db.System.newsSubs[type].filter(x => x != sub));
                 msg.channel.send(bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
             } else {
-                bot.db.save(`System.newsSubs.${type}`, (bot.db.get(`System.newsSubs.${type}`) || []).push(sub));
+                bot.db.save(`System.newsSubs.${type}`, (bot.db.get(`System.newsSubs.${type}`) || []).concat(sub));
                 msg.channel.send(bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
             }
         }
