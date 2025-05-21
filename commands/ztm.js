@@ -1,4 +1,4 @@
-const ztm =    require("../ztm");
+const ztm =    require("../util/ztm");
 const fs =     require("fs");
 
 module.exports = {
