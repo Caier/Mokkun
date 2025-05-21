@@ -152,7 +152,7 @@ class Mokkun extends Discord.Client {
 
         let news = await ztm.checkZTMNews();
         
-        if(news.data_wygenerowania == prevRes.data_wygenerowania) return;
+        if(JSON.stringify(news.komunikaty) == JSON.stringify(prevRes.komunikaty)) return;
 
         for (let x of news.komunikaty)
         {
