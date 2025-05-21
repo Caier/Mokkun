@@ -8,7 +8,7 @@ module.exports = {
         let glassji;
         const color = '#93c0ff';
         try {
-            glassji = bot.guilds.get('427235931796537374').emojis.find(e => e.name == 'looking');
+            glassji = bot.guilds.resolve('427235931796537374').emojis.find(e => e.name == 'looking');
         }
         catch(e) {
             console.log("ERR: yeet.js, nie można połączyć się z serwerem technicznym");
@@ -26,12 +26,12 @@ module.exports = {
         let smsg;
         await msg.channel.send(bot.embgen(color, `Wyszukiwanie wiadomości... ${glassji}`)).then(nmsgg => smsg = nmsgg);
         let msgss = await bot.fetchMsgs(msg, parseInt(args[1]), (msg.mentions.members.first()) ? msg.mentions.members.first().id : false, msg.id);
-        smsg.delete(100);
+        smsg.delete({timeout: 150});
 
         if(msgss.size == 0) {
             let nmsg;
             msg.channel.send(bot.embgen(color, "Nie znaleziono żadnych wiadomości!")).then(nmsgg => nmsg = nmsgg);
-            await setTimeout(() => {nmsg.delete(100); msg.delete(100);}, 4000);
+            await setTimeout(() => {nmsg.delete({timeout: 150}); msg.delete({timeout: 150});}, 4000);
             return;
         }
 
@@ -48,19 +48,19 @@ module.exports = {
                 
                 if(rect.emoji.toString() == '👍')
                 {
-                    msg.delete(100);
-                    msgg.delete(100);
+                    msg.delete({timeout: 150});
+                    msgg.delete({timeout: 150});
                     msg.channel.bulkDelete(msgss).catch(async () => {
                         let nmsg;
                         await msg.channel.send(bot.embgen(color,"Wiadomości starsze niż 2 tygodnie lub więcej niż 100...\nUsuwanie pojedyncze...\n\nPodczas procesu bot może nieobsługiwać nowych prośb o usunięcie wiadomości!\n\nPo zakończeniu ta wiadomość powinna zostać usunięta...")).then(nmsgg => nmsg = nmsgg);
                         let job = msgss.deleteAll();
-                        job[job.length - 1].then(() => nmsg.delete(100));
+                        job[job.length - 1].then(() => nmsg.delete({timeout: 150}));
                     });
                 }
                 else 
                 {
                     await msgg.edit(bot.embgen(color, "Wiadomości nie zostaną usunięte"));
-                    setTimeout(() => {msg.delete(100); msgg.delete(100);}, 4000);
+                    setTimeout(() => {msg.delete({timeout: 150}); msgg.delete({timeout: 150});}, 4000);
                 }
 
                 bot.removeListener("messageReactionAdd", eventL);

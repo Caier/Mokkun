@@ -25,7 +25,7 @@ module.exports = {
             }
     
             if(imgs == 0) msgn.edit(bot.embgen(color, `**${msg.author.tag}** nie znaleziono!`));
-            else msgn.delete(100);
+            else msgn.delete({timeout: 150});
         });
     }
 }

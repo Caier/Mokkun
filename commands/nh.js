@@ -38,7 +38,7 @@ module.exports = {
 
                     if(['⏭','2⃣','5⃣','🔟','🔀','◀','▶'].includes(emoji))
                     {
-                        react.remove(user.id);
+                        react.users.remove(user.id);
                         switch(emoji)
                         {
                             case '▶': curPage++; break;
@@ -57,14 +57,14 @@ module.exports = {
                     }
                     else if(emoji == '⏮')
                     {
-                        react.remove(user.id);
+                        react.users.remove(user.id);
                         nMsg.edit(embed);
                         curPage = 0;
                     }
                     else if(emoji == '❌')
                     {
                         nMsg.edit(new bot.RichEmbed().setColor('#f40e29').setTitle("link").setURL(doujin.link).setDescription(`**${msg.author.tag}** zakończono czytanie!`));
-                        nMsg.clearReactions();
+                        nMsg.reactions.removeAll();
                         bot.removeListener("messageReactionAdd", eventL);
                     }
                 });

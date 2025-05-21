@@ -45,15 +45,15 @@ module.exports = {
             if(!args[2]) {
                 msg.channel.send(emb("Kompresowanie...")).then(async nmsg => {
                     zip.zip(mainDir, {name: 'mokkun-serv', filter: true}, n => !n.includes("node_modules"));
-                    await msg.channel.send("", {file: path.join(mainDir, "mokkun-serv.zip")});
-                    nmsg.delete(100);
+                    await msg.channel.send("", {files: [path.join(mainDir, "mokkun-serv.zip")]});
+                    nmsg.delete({timeout: 150});
                     fs.unlinkSync(path.join(mainDir, "mokkun-serv.zip"));
                 });
                 return;
             }
 
             fs.existsSync(path.join(mainDir, args[2]))
-            && msg.channel.send("", {file: path.join(mainDir, args[2])});
+            && msg.channel.send("", {files: [path.join(mainDir, args[2])]});
         }
 
         else if(args[1] == 'rm' && args[2]) {

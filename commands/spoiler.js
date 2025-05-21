@@ -17,11 +17,11 @@ module.exports = {
         let fpath = path.join(__dirname, "..", "files", "temp", fname);
         let fplace = fs.createWriteStream(fpath);
 
-        msg.delete(150);
+        msg.delete({timeout: 150});
 
         rp(attch[0].url).on('data', data => fplace.write(data)).on("complete", () => fplace.close());
         fplace.on("close", async () => {
-            await msg.channel.send("", {file: fpath});
+            await msg.channel.send({files: [fpath]});
             fs.unlinkSync(fpath);
         });
     }

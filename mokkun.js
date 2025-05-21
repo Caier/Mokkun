@@ -8,7 +8,7 @@ class Mokkun extends Discord.Client {
     constructor(vars = {}, color = "#FFFFFE") {
         super();
         this.sysColor = color;
-        this.RichEmbed = Discord.RichEmbed;
+        this.RichEmbed = Discord.MessageEmbed;
         this.vars = Object.assign({}, process.env, vars);
         this._ensureVars();
         this._ensureDirs();
@@ -84,9 +84,9 @@ class Mokkun extends Discord.Client {
         this.once("ready", () => this.setInterval(() => this._loops(), 30000));
         this.on("ready", () => this._onReady());
         this.on("message", msg => this._onMessage(msg));
-        this.on("disconnect", () => this._reconnect());
+        this.on("shardDisconnected", () => this._reconnect());
         this.on("error", err => console.error("Websocket error: " + err.message));
-        this.on("reconnecting", () => console.log("Reconnecting to Discord..."));
+        this.on("shardReconnecting", () => console.log("Reconnecting to Discord..."));
     }
 
     _reconnect() {
@@ -97,7 +97,7 @@ class Mokkun extends Discord.Client {
     _onReady() {
         console.log(`(re)Logged in as ${this.user.tag}`);
         if(this.db.System.presence) {
-            this.user.setPresence({game: {name: this.db.System.presence.name, type: this.db.System.presence.type}});
+            this.user.setActivity(this.db.System.presence.name, {type: this.db.System.presence.type});
         }
     }
 
@@ -113,12 +113,12 @@ class Mokkun extends Discord.Client {
         if(!msg.content.startsWith(prefix) || msg.author.bot) return;
         let args = this.getArgs(msg.content, prefix);
         if(msg.author.id != this.vars.BOT_OWNER && (msg.guild && (this.db.get(`Data.${msg.guild.id}.lockedComs`) || []).includes(args[0]) || (this.db.get(`Data.${msg.channel.id}.lockedComs`) || []).includes(args[0]))) {
-            msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale/serwerze!**`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
+            msg.channel.send(this.embgen(this.sysColor, `**Ta komenda została zablokowana na tym kanale/serwerze!**`)).then(nmsg => this.setTimeout(() => nmsg.delete({timeout: 150}), 3000));
             return;
         }
         // let cooldown = this._checkForCooldown(msg, args[0]);
         // if(cooldown) {
-        //     msg.channel.send(this.embgen(this.sysColor, `Chwila bro, ta komenda jest chłodna.\nBędziesz mógł jej użyć za ${cooldown}`)).then(nmsg => this.setTimeout(() => nmsg.delete(150), 3000));
+        //     msg.channel.send(this.embgen(this.sysColor, `Chwila bro, ta komenda jest chłodna.\nBędziesz mógł jej użyć za ${cooldown}`)).then(nmsg => this.setTimeout(() => nmsg.delete({timeout: 150}), 3000));
         //     return;
         // }
 
@@ -161,9 +161,9 @@ class Mokkun extends Discord.Client {
         {
             let embed = new this.RichEmbed().setColor(13632027).setTitle(x.tytul).setDescription(x.tresc).setFooter(`Wygasa: ${x.data_zakonczenia}`);
             for(let c of newsSubs.users)
-                this.users.get(c).send(embed);
+                this.users.resolve(c).send(embed);
             for(let c of newsSubs.channels)
-                this.channels.get(c).send(embed)
+                this.channels.resolve(c).send(embed)
         }
 
         fs.writeFileSync(path.join(__dirname, this.db.get(`System.files.prevRes`) || "files/temp"), JSON.stringify(news));
@@ -178,7 +178,7 @@ class Mokkun extends Discord.Client {
             {
                 let embed = new this.RichEmbed().setColor("#007F00").setTitle("Przypomnienie").setDescription(x.content + `\n\n\nod: \`${x.authorLit}\``).setFooter(`id: ${x.id}`);
                 let target = (x.where.isUser) ? "users" : "channels";
-                let chan = this[target].get(x.where.channel);
+                let chan = this[target].resolve(x.where.channel);
                 chan && chan.send(embed);
                 rems = rems.filter(e => e.id != x.id);
                 this.db.save(`System.reminders`, rems);
@@ -218,18 +218,18 @@ class Mokkun extends Discord.Client {
     }
 
     embgen(color = Math.floor(Math.random() * 16777215), content) {
-        return new Discord.RichEmbed().setColor(color).setDescription(content);
+        return new Discord.MessageEmbed().setColor(color).setDescription(content);
     }
 
     async fetchMsgs(msg, much, user, before) {
-        let msgs = await msg.channel.fetchMessages((before) ? {limit: 100, before: before} : {limit: 100});
+        let msgs = await msg.channel.messages.fetch((before) ? {limit: 100, before: before} : {limit: 100});
         if(msgs.size == 0) return msgs;
         let fmsg = msgs.last().id;
         if(user) msgs = msgs.filter(e => e.author.id == user);
         if(msgs.size != 0) fmsg = msgs.last().id;
         while(msgs.size < much)
         {
-            let temp = await msg.channel.fetchMessages({limit: 100, before: fmsg});
+            let temp = await msg.channel.messages.fetch({limit: 100, before: fmsg});
             if(temp.size != 0) fmsg = temp.last().id;
             else break;
             if(user) temp = temp.filter(e => e.author.id == user);

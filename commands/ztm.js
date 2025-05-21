@@ -40,7 +40,7 @@ module.exports = {
                     bot.on("messageReactionAdd", eventL = async (react, user) => {
                         if(user.id == bot.user.id || react.message.id != nmsg.id) return;
                         if(react.emoji.toString() == '🔄') {
-                            react.remove(user.id);
+                            react.users.remove(user.id);
                             nmsg.edit(new embedEstimates(await ztm.getSIP(this.data.numerTras)));
                         }
                     });
@@ -77,9 +77,9 @@ module.exports = {
                                 if(rmsg.content != "stop")
                                     new embedEstimates(x.res).send();
                                 else
-                                    msg.delete(100);
-                                rmsg.delete(100);
-                                nmsg.delete(100);
+                                    msg.delete({timeout: 150});
+                                rmsg.delete({timeout: 150});
+                                nmsg.delete({timeout: 150});
                                 bot.removeListener("message", eventL);
                                 break;
                             }
