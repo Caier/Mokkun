@@ -31,7 +31,7 @@ exports.checkZTMNews = async function(source)                                   
 {
     if(!source)
     {
-        let body = await rp("https://ztm.gda.pl/rozklady/download/opendata_out/bsk.json", {rejectUnauthorized: false, encoding: null});
+        let body = await rp("https://ztm.gda.pl/files/xml/bsk.json", {rejectUnauthorized: false, encoding: null});
         body = body.toString();
         body = body.replace(/<[\S\s][^<>]*>/g, "");
         body = JSON.parse(body);
