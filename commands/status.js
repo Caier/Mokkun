@@ -2,6 +2,7 @@ module.exports = {
     name: 'status',
     description: 'zmienia status bota',
     usage: '`$pstatus {typ aktywności} {status}` - zmienia status (presence) bota',
+    ownerOnly: true,
     execute(msg, args, bot)
     {
         args = bot.getArgs(msg.content, msg.prefix, "|", 2);
