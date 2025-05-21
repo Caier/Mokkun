@@ -1,0 +1,890 @@
+{
+  "tramwaje": {
+    "extragruchot": {
+      "model": "Konstal 102Na",
+      "type": "Extra Gruchot Deluxe",
+      "numbers": [1105]
+    },
+    "dziwnycwierc": {
+      "model": "Konstal 114Na",
+      "type": "Dziwny Ćwierćgruchot",
+      "numbers": [1502]
+    },
+    "specialgruchot": {
+      "model": "Konstal 105Na",
+      "type": "Solidarny Gruchot",
+      "numbers": [
+        1300,
+        1299,
+        1309
+      ]
+    },
+    "jazz": {
+      "model": "PESA Jazz Duo",
+      "type": "Deśignerski",
+      "numbers": [
+        1051,
+        1052,
+        1053,
+        1054,
+        1055
+      ]
+    },
+    "swing": {
+      "model": "PESA Swing",
+      "type": "Brudas",
+      "numbers": [
+        1011,
+        1012,
+        1013,
+        1014,
+        1015,
+        1016,
+        1017,
+        1018,
+        1019,
+        1020,
+        1021,
+        1022,
+        1023,
+        1024,
+        1025,
+        1026,
+        1027,
+        1028,
+        1029,
+        1030,
+        1031,
+        1032,
+        1033,
+        1034,
+        1035,
+        1036,
+        1037,
+        1038,
+        1039,
+        1040,
+        1041,
+        1042,
+        1043,
+        1044,
+        1045
+      ]
+    },
+    "n8c": {
+      "model": "DÜWAG N8C",
+      "type": "Półgruchot",
+      "numbers": [
+        1107,
+        1108,
+        1109,
+        1110,
+        1111,
+        1112,
+        1113,
+        1114,
+        1115,
+        1116,
+        1117,
+        1118,
+        1119,
+        1120,
+        1121,
+        1122,
+        1123,
+        1124,
+        1125,
+        1126,
+        1127,
+        1128,
+        1129,
+        1131,
+        1132,
+        1133,
+        1134,
+        1135,
+        1136,
+        1137,
+        1138,
+        1139,
+        1140,
+        1141,
+        1143,
+        1144,
+        1145,
+        1146,
+        1147,
+        1148,
+        1149,
+        1150,
+        1151,
+        1152,
+        1153,
+        1154,
+        1161,
+        1162,
+        1163,
+        1164,
+        1165,
+        1166,
+        1167,
+        1168,
+        1169,
+        1170,
+        1171,
+        1173,
+        1174,
+        1175,
+        1176
+      ]
+    },
+    "bomb": {
+      "model": "Bombardier NGT6",
+      "type": "Ćwierćgruchot",
+      "numbers": [
+        1005,
+        1006,
+        1007
+      ]
+    },
+    "ngd": {
+      "model": "Alstom NGD99",
+      "type": "Deśignerski",
+      "numbers": [
+        1001,
+        1002,
+        1003,
+        1004
+      ]
+    },
+    "k114": {
+      "model": "Konstal 114Na",
+      "type": "Ćwierćgruchot",
+      "numbers": [
+        1501,
+        1502
+      ]
+    },
+    "k105": {
+      "model": "Konstal 105Na",
+      "type": "Gruchot",
+      "numbers": [
+        1202,
+        1203,
+        1226,
+        1227,
+        1232,
+        1234,
+        1233,
+        1238,
+        1260,
+        1259,
+        1260,
+        1290,
+        1292,
+        1295,
+        1296,
+        1300,
+        1299,
+        1309,
+        1301,
+        1310,
+        1324,
+        1325,
+        1339,
+        1340,
+        1349,
+        1350,
+        1346,
+        1415,
+        1416
+      ]
+    }
+  },
+  "autobusy": {
+    "citaroo530": {
+      "model": "Mercedes Citaro O 530",
+      "type": "",
+      "numbers": [
+        2747,
+        2748,
+        2749,
+        2750,
+        2751,
+        2752,
+        2753,
+        2754,
+        2755,
+        2756,
+        2757,
+        2758,
+        2759,
+        2760
+      ]
+    },
+    "citarog": {
+      "model": "Mercedes 658 03 Citaro G",
+      "type": "",
+      "numbers": [
+        2653,
+        2654,
+        2655,
+        2656,
+        2657,
+        2658,
+        2659,
+        2660,
+        2661
+      ]
+    },
+    "citaro": {
+      "model": "Mercedes 628 02 Citaro",
+      "type": "",
+      "numbers": [
+        2738,
+        2739,
+        2740,
+        2741,
+        2742,
+        2743,
+        2744,
+        2745,
+        2746
+      ]
+    },
+    "citarok": {
+      "model": "Mercedes Citaro K",
+      "type": "",
+      "numbers": [
+        8401,
+        2487,
+        2488,
+        2489,
+        2490,
+        2491
+      ]
+    },
+    "iveco": {
+      "model": "Kapena Iveco Urby 65C",
+      "type": "",
+      "numbers": [
+        2903,
+        2904,
+        2905,
+        2906,
+        2907,
+        2908
+      ]
+    },
+    "conecto": {
+      "model": "Mercedes Conecto (BP Tour)",
+      "type": "",
+      "numbers": [
+        8001,
+        8002,
+        8003,
+        8004,
+        8005,
+        8006,
+        8007,
+        8008,
+        8009,
+        8010,
+        8011,
+        8012,
+        8013,
+        8014,
+        8015
+      ]
+    },
+    "conectog": {
+      "model": "Mercedes Conecto G",
+      "type": "",
+      "numbers": [
+        8501,
+        8502,
+        8503,
+        8504,
+        8505,
+        8506,
+        8507,
+        8508,
+        8509,
+        8510,
+        8511,
+        8512,
+        8513,
+        8514,
+        8515,
+        8516,
+        8517,
+        8518,
+        8519,
+        8520,
+        8521,
+        8522,
+        2641,
+        2642,
+        2643,
+        2644,
+        2645,
+        2646,
+        2647,
+        2648,
+        2649,
+        2650,
+        2651,
+        2652
+      ]
+    },
+    "conectolf": {
+      "model": "Mercedes Conecto LF",
+      "type": "",
+      "numbers": [
+        2728,
+        2729,
+        2730,
+        2731,
+        2732,
+        2733,
+        2734,
+        2735,
+        2736,
+        2737
+      ]
+    },
+    "urbino12": {
+      "model": "Solaris Urbino 12",
+      "type": "",
+      "numbers": [
+        8081,
+        8082,
+        8083,
+        8084,
+        8085,
+        8016,
+        2039,
+        2040,
+        2041,
+        2042,
+        2067,
+        2068,
+        2069,
+        2070,
+        2071,
+        2072,
+        2073,
+        2074,
+        2075,
+        2076,
+        2077,
+        2078,
+        2079,
+        2080,
+        2081,
+        2082,
+        2083,
+        2084,
+        2085,
+        2086,
+        2087,
+        2088,
+        2089,
+        2090,
+        2091,
+        2092,
+        2093,
+        2094,
+        2095,
+        2096,
+        2097,
+        2098,
+        2099,
+        2800,
+        2801,
+        2802,
+        2803,
+        2804,
+        2805,
+        2806
+      ]
+    },
+    "urbino18": {
+      "model": "Solaris Urbino 18",
+      "type": "",
+      "numbers": [
+        2504,
+        2505,
+        2506,
+        2507,
+        2508,
+        2509,
+        2510,
+        2511,
+        2512,
+        2513,
+        2514,
+        2515,
+        2516,
+        2517,
+        2518,
+        2519,
+        2520,
+        2521,
+        2522,
+        2523,
+        2524,
+        2525,
+        2526,
+        2527,
+        2528,
+        2529,
+        2530,
+        2531,
+        2532,
+        2533,
+        2534,
+        2535,
+        2536,
+        2537,
+        2538,
+        2539,
+        2540,
+        2541,
+        2542,
+        2543,
+        2544,
+        2545,
+        2546,
+        2547
+      ]
+    },
+    "manng": {
+      "model": "MAN NG 313",
+      "type": "",
+      "numbers": [
+        2501,
+        2502,
+        2503
+      ]
+    },
+    "man469": {
+      "model": "MAN 469 NM222",
+      "type": "",
+      "numbers": [
+        2485,
+        2486
+      ]
+    },
+    "man263": {
+      "model": "MAN NL 263",
+      "type": "",
+      "numbers": [
+        2043,
+        2044,
+        2045,
+        2046
+      ]
+    },
+    "man283": {
+      "model": "MAN NL 283",
+      "type": "",
+      "numbers": [
+        2047,
+        2048,
+        2049,
+        2050,
+        2051,
+        2052,
+        2053,
+        2054,
+        2055,
+        2056,
+        2057,
+        2058,
+        2059,
+        2060,
+        2061,
+        2062,
+        2063,
+        2064,
+        2065,
+        2066
+      ]
+    },
+    "neoplan": {
+      "model": "NEOPLAN N4007",
+      "type": "",
+      "numbers": [
+        2480
+      ]
+    },
+    "o405gn2": {
+      "model": "Mercedes-Benz O405 GN2",
+      "type": "",
+      "numbers": [
+        2615,
+        2616,
+        2617,
+        2618,
+        2619,
+        2620,
+        2621,
+        2622,
+        2623,
+        2624,
+        2625,
+        2626,
+        2627,
+        2628,
+        2629,
+        2630,
+        2631,
+        2632,
+        2633,
+        2634,
+        2635,
+        2636,
+        2637,
+        2638,
+        2639,
+        2640
+      ]
+    },
+    "o405n": {
+      "model": "Mercedes-Benz O405N",
+      "type": "",
+      "numbers": [
+        2012,
+        2701,
+        2702,
+        2703,
+        2704,
+        2705,
+        2706,
+        2707,
+        2708,
+        2709,
+        2710,
+        2711,
+        2712,
+        2713,
+        2714,
+        2715,
+        2716,
+        2717,
+        2718,
+        2719,
+        2720,
+        2721,
+        2722,
+        2723,
+        2724,
+        2725,
+        2726,
+        2727
+      ]
+    },
+    "volvobrlh": {
+      "model": "Volvo BRLH (7700H)",
+      "type": "",
+      "numbers": [
+        8017
+      ]
+    },
+    "Marka Typ": {
+      "model": "Marka Typ",
+      "type": "",
+      "numbers": [
+        null
+      ]
+    },
+    "MERCEDES CITARO O530UM": {
+      "model": "MERCEDES CITARO O530UM",
+      "type": "",
+      "numbers": [
+        7000
+      ]
+    },
+    "SETRA S315NF": {
+      "model": "SETRA S315NF",
+      "type": "",
+      "numbers": [
+        7001,
+        7010
+      ]
+    },
+    "MERCEDES O405N2": {
+      "model": "MERCEDES O405N2",
+      "type": "",
+      "numbers": [
+        7002,
+        7007,
+        7008,
+        9069
+      ]
+    },
+    "MAN A20 NU313": {
+      "model": "MAN A20 NU313",
+      "type": "",
+      "numbers": [
+        7003
+      ]
+    },
+    "MERCEDES CITARO O530": {
+      "model": "MERCEDES CITARO O530",
+      "type": "",
+      "numbers": [
+        7004,
+        7005,
+        7006,
+        7011,
+        7013,
+        7014,
+        7015,
+        7018,
+        7049
+      ]
+    },
+    "MAN NL263": {
+      "model": "MAN NL263",
+      "type": "",
+      "numbers": [
+        7009,
+        7019,
+        7020
+      ]
+    },
+    "MAN NU313": {
+      "model": "MAN NU313",
+      "type": "",
+      "numbers": [
+        7016
+      ]
+    },
+    "MAN A20": {
+      "model": "MAN A20",
+      "type": "",
+      "numbers": [
+        7017
+      ]
+    },
+    "SOLARIS Urbino 12": {
+      "model": "SOLARIS Urbino 12",
+      "type": "",
+      "numbers": [
+        7041
+      ]
+    },
+    "AMZ CS12 CITY SMILE": {
+      "model": "AMZ CS12 CITY SMILE",
+      "type": "",
+      "numbers": [
+        7044
+      ]
+    },
+    "MAN Lion's City A20": {
+      "model": "MAN Lion's City A20",
+      "type": "",
+      "numbers": [
+        7045
+      ]
+    },
+    "MAN Lion`s Coach R08": {
+      "model": "MAN Lion`s Coach R08",
+      "type": "",
+      "numbers": [
+        7549,
+        7550
+      ]
+    },
+    "MAN Lion`s Coach R07": {
+      "model": "MAN Lion`s Coach R07",
+      "type": "",
+      "numbers": [
+        7551
+      ]
+    },
+    "MERCEDES TOURISMO O350": {
+      "model": "MERCEDES TOURISMO O350",
+      "type": "",
+      "numbers": [
+        7552
+      ]
+    },
+    "MERCEDES O408": {
+      "model": "MERCEDES O408",
+      "type": "",
+      "numbers": [
+        7553,
+        7554,
+        7555,
+        7570,
+        7574,
+        7575,
+        7576,
+        7577,
+        7579,
+        7589
+      ]
+    },
+    "MERCEDES O407": {
+      "model": "MERCEDES O407",
+      "type": "",
+      "numbers": [
+        7571,
+        7572,
+        7573,
+        7595,
+        7596,
+        7597,
+        7598,
+        7599
+      ]
+    },
+    "MERCEDES S 315 UL": {
+      "model": "MERCEDES S 315 UL",
+      "type": "",
+      "numbers": [
+        7578
+      ]
+    },
+    "MERCEDES INTEGRO O550": {
+      "model": "MERCEDES INTEGRO O550",
+      "type": "",
+      "numbers": [
+        7580,
+        7582,
+        7583,
+        7585,
+        7586,
+        7588,
+        7590,
+        7591,
+        7592,
+        7593
+      ]
+    },
+    "SETRA S315 UL GT": {
+      "model": "SETRA S315 UL GT",
+      "type": "",
+      "numbers": [
+        7581,
+        7594
+      ]
+    },
+    "MAN A01": {
+      "model": "MAN A01",
+      "type": "",
+      "numbers": [
+        7584
+      ]
+    },
+    "SETRA S315 HD GT": {
+      "model": "SETRA S315 HD GT",
+      "type": "",
+      "numbers": [
+        7587
+      ]
+    },
+    "MERCEDES Sprinter 519CDI": {
+      "model": "MERCEDES Sprinter 519CDI",
+      "type": "",
+      "numbers": [
+        7777
+      ]
+    },
+    "MERCEDES O303": {
+      "model": "MERCEDES O303",
+      "type": "",
+      "numbers": [
+        7979,
+        7981
+      ]
+    },
+    "MERCEDES 412D": {
+      "model": "MERCEDES 412D",
+      "type": "",
+      "numbers": [
+        7869
+      ]
+    },
+    "MAN Lion's City A21": {
+      "model": "MAN Lion's City A21",
+      "type": "",
+      "numbers": [
+        9061,
+        9062,
+        9063,
+        9064
+      ]
+    },
+    "SOLARIS URBINO 12": {
+      "model": "SOLARIS URBINO 12",
+      "type": "",
+      "numbers": [
+        9066
+      ]
+    },
+    "MAN Lion's City NL243": {
+      "model": "MAN Lion's City NL243",
+      "type": "",
+      "numbers": [
+        9831
+      ]
+    },
+    "MAN NG313": {
+      "model": "MAN NG313",
+      "type": "",
+      "numbers": [
+        9270,
+        9283,
+        9284,
+        9285
+      ]
+    },
+    "MAN Lion's City A23": {
+      "model": "MAN Lion's City A23",
+      "type": "",
+      "numbers": [
+        9271,
+        9272,
+        9273,
+        9276,
+        9277,
+        9278,
+        9279,
+        9280,
+        9281
+      ]
+    },
+    "FORD Custom": {
+      "model": "FORD Custom",
+      "type": "",
+      "numbers": [
+        9701,
+        9702,
+        9703,
+        9704,
+        9705,
+        9706,
+        9707,
+        9708,
+        9709,
+        9710
+      ]
+    },
+    "FORD TRANSIT": {
+      "model": "FORD TRANSIT",
+      "type": "",
+      "numbers": [
+        9711,
+        9712,
+        9713,
+        9714,
+        9715,
+        9716
+      ]
+    }
+  }
+}
