@@ -178,7 +178,7 @@ class Mokkun extends Discord.Client {
         let wrdcur = "";
 
         for(var i = 0; i < msg.length; i++) {
-            if(msg[i] === ' ' && (msg[i-1] === ' ' || msg[i-1] === splitter || msg[i+1] === splitter))
+            if(msg[i] === ' ' && (msg[i-1] === ' ' || msg[i-1] === splitter))
                 continue;
             if(msg[i] != splitter) {
                 if((msg[i] === ' ' && spacecnt >= freeargs) || msg[i] != ' ')

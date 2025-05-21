@@ -56,7 +56,9 @@ module.exports = {
 
             embed = new bot.RichEmbed().setColor("#007F00").setDescription(`Ustawiono przypomienie w <${applied}>\nWiadomość: \`${rem.content}\`\nKiedy: \`${new Date(rem.boomTime)}\``).setFooter(`id: ${rem.id}`);
             
-            bot.db.save(`System.reminders`, (bot.db.get(`System.reminders`) || []).push(rem));
+            let curRems = (bot.db.get(`System.reminders`) || [])
+            curRems.push(rem);
+            bot.db.save(`System.reminders`, curRems);
 
             msg.channel.send(embed);
         }
