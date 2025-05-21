@@ -17,15 +17,12 @@
     "cheerio": "*",
     "discord.js": "^11.5.1",
     "dotenv": "^8.1.0",
-    "download-file": "^0.1.5",
     "fs": "*",
-    "html-entities": "^1.2.1",
-    "iconv-lite": "*",
+    "fs-extra": "^8.1.0",
     "is-online": "^8.2.0",
     "nodeJs-zip": "^1.0.4",
     "request": "*",
     "request-promise": "*",
-    "rimraf": "^2.6.3",
     "uuid": "^3.3.2"
   },
   "engines": {

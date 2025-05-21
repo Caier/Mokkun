@@ -10,8 +10,7 @@ module.exports = {
             msg.channel.send(bot.embgen(bot.sysColor, `Zbyt długi prefix (max. 10)`));
             return;
         }
-        bot.db.Data[msg.guild.id].prefix = args[1];
-        bot.db.save();
+        bot.db.save(`Data.${msg.guild.id}.prefix`, args[1]);
         msg.channel.send(bot.embgen(bot.sysColor, `Zmieniono prefix na ${args[1]}`));
     }
 }

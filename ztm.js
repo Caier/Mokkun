@@ -1,8 +1,7 @@
 const rp = require("request-promise");
 const fs = require("fs");
 const path = require("path");
-const ent = require("html-entities").AllHtmlEntities;
-const ents = new ent();
+const $ = require('cheerio');
 const stopF = path.join(__dirname, "ZTMstops.json");
 
 async function getStops(){
@@ -38,7 +37,7 @@ exports.checkZTMNews = async function(source)                                   
         body = JSON.parse(body);
 
         for (var x = 0; x < body.komunikaty.length; x++)
-            body.komunikaty[x].tresc = ents.decode(body.komunikaty[x].tresc);
+            body.komunikaty[x].tresc = $.load(body.komunikaty[x].tresc).text();
 
         return body;
     }

@@ -38,7 +38,7 @@ module.exports = {
                     setTimeout(() => bot.removeListener("message", eventL), 86400000);
                     await nmsg.react('🔄');
                     bot.on("messageReactionAdd", eventL = async (react, user) => {
-                        if(user.id != msg.author.id || react.message.id != nmsg.id) return;
+                        if(react.message.id != nmsg.id) return;
                         if(react.emoji.toString() == '🔄') {
                             react.remove(user.id);
                             nmsg.edit(new embedEstimates(await ztm.getSIP(this.data.numerTras)));
@@ -48,9 +48,9 @@ module.exports = {
             }
         }
        
-        let veh = JSON.parse(fs.readFileSync(bot.db.System.files.pojazdy));
+        let veh = JSON.parse(fs.readFileSync(bot.db.get(`System.files.pojazdy`)) || "{}");
 
-        if(args.length < 3 && bot.db.Data[msg.author.id].ztmShorts && bot.db.Data[msg.author.id].ztmShorts[args[1]])
+        if(args.length < 3 && bot.db.get(`Data.${msg.author.id}.ztmShorts.${args[1]}`))
             new embedEstimates(await ztm.getSIP(bot.db.Data[msg.author.id].ztmShorts[args[1]])).send();
 
         else if(args.length < 3 && args[1] != 'subscribe')
@@ -105,9 +105,8 @@ module.exports = {
                 msg.channel.send(bot.embgen(13632027, "ID must be number only!"));
                 return;
             }
-            bot.db.Data[msg.author.id].ztmShorts = bot.db.Data[msg.author.id].ztmShorts || {};
-            bot.db.Data[msg.author.id].ztmShorts[args[2]] = args[3];
-            bot.db.save();
+            args[2] = args[2].replace(/\./g, "");
+            bot.db.save(`Data.${msg.author.id}.ztmShorts.${args[2]}`, args[3]);
             msg.channel.send(bot.embgen(13632027, `Zapisano id ${args[3]} jako ${args[2]}`));
         }
 
@@ -115,14 +114,13 @@ module.exports = {
         {
             let sub = (msg.channel.type == 'dm') ? msg.author.id : msg.channel.id;
             let type = (msg.channel.type == 'dm') ? "users" : "channels";
-            if(bot.db.System.newsSubs[type].includes(sub)) {
-                bot.db.System.newsSubs[type] = bot.db.System.newsSubs[type].filter(x => x != sub);
+            if((bot.db.get(`System.newsSubs.${type}`) || []).includes(sub)) {
+                bot.db.save(`System.newsSubs.${type}`, bot.db.System.newsSubs[type].filter(x => x != sub));
                 msg.channel.send(bot.embgen(13632027, "Ten kanał został usunięty z listy subskrybentów"));
             } else {
-                bot.db.System.newsSubs[type].push(sub);
+                bot.db.save(`System.newsSubs.${type}`, (bot.db.get(`System.newsSubs.${type}`) || []).push(sub));
                 msg.channel.send(bot.embgen(13632027, "Ten kanał został dodany do listy subskrybentów sytuacji komunikacyjnej ZTM"));
             }
-            bot.db.save();
         }
     }
 }

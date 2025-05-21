@@ -1,5 +1,5 @@
 const Discord = require("discord.js");
-const fs = require("fs");
+const fs = require("fs-extra");
 const path = require("path");
 const ztm = require("./ztm");
 const isOnline = require('is-online');
@@ -7,33 +7,54 @@ const isOnline = require('is-online');
 class Mokkun extends Discord.Client {
     constructor(vars = {}, color = "#FFFFFF") {
         super();
-        for(var name in vars)
-            process.env[name] = vars[name];
-        this._ensureVars();
-        this.db = this._getDatabase();
-        this.commands = this._loadCommands();
         this.sysColor = color;
         this.RichEmbed = Discord.RichEmbed;
+        this.vars = Object.assign({}, process.env, vars);
+        this._ensureVars();
+        this.db = this._getDatabase(this.vars.DB_PATH);
+        this.commands = this._loadCommands();
         this._start();
     }
 
     _ensureVars() {
         let reqVars = ["TOKEN", "BOT_OWNER", "DB_PATH"];
-        let missingVars = reqVars.filter(env => typeof(process.env[env]) === 'undefined')
+        let missingVars = reqVars.filter(env => typeof(this.vars[env]) === 'undefined')
         if(missingVars.length > 0)
             throw Error("Missing Required Env Vars: " + missingVars.join(", "));
     }
 
-    _getDatabase() {
-        let db;
-        try {
-            db = JSON.parse(fs.readFileSync(path.join(__dirname, process.env.DB_PATH)));
-        } catch(e) {
-            throw Error("Unable to access provided database");
+    _getDatabase(db_path) {
+        if(!db_path) db_path = `files/temp/${new Date().toISOString().replace(/[^A-z0-9]/g, "")}.db`;
+        let db = JSON.parse(fs.existsSync(path.join(__dirname, db_path)) && fs.readFileSync(path.join(__dirname, db_path)) || "{}");
+        if(Object.entries(db).length == 0) {
+            console.log("Starting with an empty database!");
+            fs.writeFileSync(path.join(__dirname, db_path), "{}");
         }
-        db.save = () => {
-            fs.writeFileSync(path.join(__dirname, process.env.DB_PATH), JSON.stringify(this.db, null, 2));
+
+        db.get = (query) => {
+            query = query.split(".");
+            let temp = db[query.shift()];
+            for(var q of query)
+                if(temp === undefined) 
+                    break;
+                else   
+                    temp = temp[q];
+            return temp;
         }
+        db.save = (query, data) => {
+            if(data === undefined)
+                throw Error("Data parameter is required");
+            query = query.split(".");
+            let temp = db;
+            for(var q of query.slice(0, -1)) {
+                if(temp[q] === undefined) 
+                    temp[q] = {};
+                temp = temp[q]
+            }
+            temp[query.slice(-1)] = data;
+            fs.writeFileSync(path.join(__dirname, db_path), JSON.stringify(db, null, 2));
+        }
+
         return db;
     }
 
@@ -53,7 +74,7 @@ class Mokkun extends Discord.Client {
     }
 
     _start() {
-        this.login(process.env.TOKEN);
+        this.login(this.vars.TOKEN);
         this.once("ready", () => this.setInterval(() => this._loops(), 30000));
         this.on("ready", () => this._onReady());
         this.on("message", msg => this._onMessage(msg));
@@ -64,7 +85,7 @@ class Mokkun extends Discord.Client {
 
     _reconnect() {
         console.error("Kardynalny connecton with discord error, retrying in 30 seconds.");
-        setTimeout(() => this.login(process.env.TOKEN).catch(e => this.reconnect(e)), 30000);
+        setTimeout(() => this.login(this.vars.TOKEN).catch(e => this.reconnect(e)), 30000);
     }
 
     _onReady() {
@@ -75,18 +96,11 @@ class Mokkun extends Discord.Client {
     }
 
     async _onMessage(msg) {
-        let flag = false;
-        if(!this.db.Data[msg.author.id]) this.db.Data[msg.author.id] = (flag = true) && {type: "user"};
-        if(!this.db.Data[msg.channel.id]) this.db.Data[msg.channel.id] = (flag = true) && {type: "channel"};
-        if(msg.guild && !this.db.Data[msg.guild.id]) this.db.Data[msg.guild.id] = (flag = true) && {type: "guild"};
-        flag && this.db.save();
-
-        let prefix = msg.guild && this.db.Data[msg.guild.id].prefix || '.';
+        let prefix = msg.guild && this.db.get(`Data.${msg.guild.id}.prefix`) || '.';
         msg.prefix = prefix;
         
         if(msg.content == '.resetprefix' && msg.guild && msg.member.permissions.has("MANAGE_GUILD")) {
-            this.db.Data[msg.guild.id].prefix = ".";
-            this.db.save();
+            this.db.save(`Data.${msg.guild.id}.prefix`, ".");
             msg.channel.send(this.embgen(this.sysColor, 'Zresetowano prefix do "."'));
         }
 
@@ -95,12 +109,12 @@ class Mokkun extends Discord.Client {
         try {
             if(this.commands.has(args[0])) {
                 let cmd = this.commands.get(args[0]);
-                if(cmd.ownerOnly && msg.author.id != process.env.BOT_OWNER)
-                    msg.channel.send(this.embgen(this.sysColor, "Z tej komendy może korzystać tylko owner bota!"));
+                if(cmd.ownerOnly && msg.author.id != this.vars.BOT_OWNER)
+                    msg.channel.send(this.embgen(this.sysColor, "**Z tej komendy może korzystać tylko owner bota!**"));
                 else if(cmd.notdm && msg.channel.type == 'dm')
-                    msg.channel.send(this.embgen(this.sysColor, "Z tej komendy nie można korzystać na PRIV!"));
-                else if(cmd.permissions && !msg.member.permissions.toArray().includes(...cmd.permissions))
-                    msg.channel.send(this.embgen(this.sysColor, `Nie posiadasz odpowiednich uprawnień:\n${cmd.permissions.filter(p => !msg.member.permissions.toArray().includes(p)).join("\n")}`));
+                    msg.channel.send(this.embgen(this.sysColor, "**Z tej komendy nie można korzystać na PRIV!**"));
+                else if(cmd.permissions && !cmd.permissions.every(v => msg.member.permissions.toArray().includes(v)))
+                    msg.channel.send(this.embgen(this.sysColor, `**Nie posiadasz odpowiednich uprawnień:**\n${cmd.permissions.filter(p => !msg.member.permissions.toArray().includes(p)).join("\n")}`));
                 else 
                     await cmd.execute(msg, args, this);
             }
@@ -118,10 +132,10 @@ class Mokkun extends Discord.Client {
     }
 
     async _newsletter() {
-        let prevRes = (fs.existsSync(path.join(__dirname, this.db.System.files.prevRes))) ? fs.readFileSync(path.join(__dirname, this.db.System.files.prevRes)) : "{}";
+        let prevRes = (fs.existsSync(path.join(__dirname, this.db.get(`System.files.prevRes`)))) ? fs.readFileSync(path.join(__dirname, this.db.get(`System.files.prevRes`))) : "{}";
 
         prevRes = JSON.parse(prevRes);
-        let newsSubs = this.db.System.newsSubs;
+        let newsSubs = this.db.get(`System.newsSubs`);
 
         let news = await ztm.checkZTMNews();
         
@@ -136,11 +150,11 @@ class Mokkun extends Discord.Client {
                 this.channels.get(c).send(embed)
         }
 
-        fs.writeFileSync(path.join(__dirname, this.db.System.files.prevRes), JSON.stringify(news));
+        fs.writeFileSync(path.join(__dirname, this.db.get(`System.files.prevRes`) || "files/temp"), JSON.stringify(news));
     }
 
     async _reminders() {
-        let rems = this.db.System.reminders;
+        let rems = this.db.get(`System.reminders`);
 
         for(var x of rems)
         {
@@ -150,8 +164,7 @@ class Mokkun extends Discord.Client {
                 let target = (x.where.isUser) ? "users" : "channels";
                 this[target].get(x.where.channel).send(embed);
                 rems = rems.filter(e => e.id != x.id);
-                this.db.System.reminders = rems;
-                this.db.save();
+                this.db.save(`System.reminders`, rems);
             }
         }
     }

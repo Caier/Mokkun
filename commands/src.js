@@ -1,123 +1,78 @@
-const fs =    require("fs");
-const rmf =   require("rimraf");
-const dl =    require("download-file");
+const fs =    require("fs-extra");
 const zip =   require("nodeJs-zip");
 const path =  require("path");
+const rp =    require("request-promise");
 
 module.exports = {
+    ownerOnly: true,
     name: 'src',
     description: 'ściąga pliki źródłowe i dane bota',
     usage: '`$psrc ls` - wysyła listę plików w katalogu głównym bota\n`$psrc ls {ścieżka katalogu}` - wysyła listę plików w podanym katalogu\n`$psrc dl {ścieżka do pliku}` - wysyła podany plik, o ile plik nie jest oznaczony jako tajny\n`$psrc rm {ścieżka pliku}` - usuwa plik lub katalog, *tylko owner bota*\n`$psrc up` - wysyła plik do systemu plików bota - *tylko owner bota*',
     execute(msg, args, bot)
     {
-        function thisEmbed(sdes)
-        {
-            if(!sdes)
-                return new bot.RichEmbed().setColor("#4782b3");
-            else   
-                return new bot.RichEmbed().setColor("#4782b3").setDescription(sdes);
+        let emb = (desc) => {
+            return desc && new bot.RichEmbed().setColor("#4782b3").setDescription(desc) || new bot.RichEmbed().setColor("#4782b3");
         }
 
         args = bot.getArgs(msg.content, msg.prefix, "|", 2);
+        let mainDir = path.join(__dirname, "..");
 
-        if(args[1] == "ls")
-        {
-            if(args[2] && !args[2].includes("..")) dir = `./${args[2]}/`;
-            else dir = "./";
+        if(args[1] == 'ls') {
+            let dir = path.join(mainDir, args[2] || "");
+            if(!dir.includes(mainDir))
+                dir = mainDir;
+            let files = fs.readdirSync(dir);
+            files.forEach((val, i, obj) => {
+                if(fs.statSync(path.join(dir, val)).isDirectory())
+                    obj[i] = "....." + obj[i] + "/";
+            });
+            files.sort((a,b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+            files.forEach((v,i,o) => o[i] = v.startsWith(".....") && o[i].slice(5) || o[i]);
 
-            try {files = fs.readdirSync(dir);}
-            catch (err) {msg.channel.send(thisEmbed(err.message)); return;}
-
-            for(x = 0; x < files.length; x++)
-            {
-                stats = fs.statSync(`${dir}${files[x]}`)
-                    if(stats.isDirectory())
-                        files[x] = `**(DIR)** ${files[x]}`;
-            }
-
-            files.sort();
-
-            out = thisEmbed().setTitle(`**Pliki w katalogu ${dir}:**`);
-            str = "";
-            
-            for(x of files)
+            dir = dir.replace(mainDir, "") || "głównym";
+            let out = emb().setTitle(`**Pliki w katalogu ${dir}:**`);
+            let str = '';
+            for(var x of files)
                 str += x + '\n';
-                
-            if(str.length < 2040)
-            {
+            if(str.length < 2040) {
                 out.setDescription(str);
                 msg.channel.send(out);
-            }
-            else
+            } else
                 msg.channel.send(`**Pliki w katalogu ${dir}:**\n${str}`, {split: true});
         }
 
-        else if(args[1] == "dl")
-        {
-            if(args[2] && !args[2].includes(".."))
-
-                if((!args[2].includes("config.json") && !args[2].includes("srcsec")) || msg.author.id == config.botOwner)
-                    msg.channel.send("", {file: `./${args[2]}`}).catch(err => {msg.channel.send(thisEmbed(err.message))});
-                else return;
-
-            else if(!args[2] && msg.author.id == config.botOwner)
-            {
-                filter = function(e){
-                    return !e.includes("node_modules");
-                }
-
-                file = path.join(__dirname, "../");
-                try 
-                {
-                    msg.channel.send(thisEmbed("Kompresowanie...")).then(msgg => {
-                        zip.zip(file, {name: "mokkun-serv", filter: true}, filter);
-                        msg.channel.send("", {file: `./mokkun-serv.zip`}).catch(err => {msg.channel.send(thisEmbed(err.message)); return;}).then(rwr => {
-                            msgg.delete();
-                            try {fs.unlinkSync("./mokkun-serv.zip");}
-                            catch (err) {msg.channel.send(thisEmbed(err.message));}
-                        });
-                    });  
-                } catch (err) {msg.channel.send(thisEmbed(err.message));}
-            }
-            else return;
-        }
-
-        else if(args[1] == "rm" && msg.author.id == config.botOwner)
-        {
-            if(args[2] && !args[2].includes("..") && !args[2].includes("./") && args[2].trim() != ".")
-            {
-                if(fs.existsSync(`./${args[2]}`))
-                {
-                    stats = fs.statSync(`./${args[2]}`);
-
-                    if(!stats.isDirectory())
-                        try {
-                            fs.unlinkSync(`./${args[2]}`);
-                            msg.channel.send(thisEmbed(`Usunięto plik ./${args[2]}`));
-                        }
-                        catch (err) {msg.channel.send(thisEmbed(err.message))}
-                    else
-                        try {
-                            rmf.sync(`./${args[2]}`);
-                            msg.channel.send(thisEmbed(`Usunięto katalog ./${args[2]}`));
-                        }
-                        catch (err) {msg.channel.send(thisEmbed(err.message))}
-                }
-            } 
-            else return;
-        }
-
-        else if(args[1] == "up" && msg.author.id == config.botOwner)
-        {
-            attch = msg.attachments.array();
-
-            if(attch[0] != undefined && args[2] && !args[2].includes(".."))
-            {
-                dl(attch[0].url, {directory: `./${args[2]}`, filename: `${attch[0].url.slice(attch[0].url.lastIndexOf("/"))}`}, err => {
-                    if(err) msg.channel.send(thisEmbed(err.message));
-                    msg.channel.send(thisEmbed("Wysłano plik"));
+        else if(args[1] == 'dl') {
+            if(!args[2]) {
+                msg.channel.send(emb("Kompresowanie...")).then(async nmsg => {
+                    zip.zip(mainDir, {name: 'mokkun-serv', filter: true}, n => !n.includes("node_modules"));
+                    await msg.channel.send("", {file: path.join(mainDir, "mokkun-serv.zip")});
+                    nmsg.delete(100);
+                    fs.unlinkSync(path.join(mainDir, "mokkun-serv.zip"));
                 });
+                return;
             }
+
+            fs.existsSync(path.join(mainDir, args[2]))
+            && msg.channel.send("", {file: path.join(mainDir, args[2])});
+        }
+
+        else if(args[1] == 'rm' && args[2]) {
+            let dir = path.join(mainDir, args[2]);
+            if(!dir.includes(mainDir) || dir == mainDir || dir == path.join(mainDir, "/") || !fs.existsSync(dir)) return;
+            fs.removeSync(dir);
+            msg.channel.send(emb(`Usunięto plik/katalog **${args[2]}**`));
+        }
+
+        else if(args[1] == 'up') {
+            let attch = msg.attachments.array();
+            if(!attch[0]) return;
+            let dir = path.join(mainDir, args[2] || "");
+            if(!dir.includes(mainDir))
+                dir = mainDir;
+            if(!fs.statSync(dir).isDirectory()) return;
+            let savestr = fs.createWriteStream(path.join(dir, attch[0].url.slice(attch[0].url.lastIndexOf("/"))));
+            rp.get(attch[0].url).on('data', data => savestr.write(data)).then(() =>
+                msg.channel.send(emb("Wysłano plik")));
         }
     }
 }
