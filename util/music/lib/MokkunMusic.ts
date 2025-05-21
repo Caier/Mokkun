@@ -133,7 +133,7 @@ export class MusicQueue {
             return embed;
         this.outChannel.send(embed);
     }
-    //zła pozycja przy playtop
+    //zła pozycja przy playtopp
     get milisLeft() {
         let len = (this.playing?.videoInfo.milis || 0) - (this.playing?.strTime || 0);
         for(let ent of this.queue.slice(0, -1))
