@@ -4,7 +4,8 @@
   "description": "Discord Mokkun Bot",
   "main": "mokkun.js",
   "scripts": {
-    "start": "node mokkun.js"
+    "start": "node mokkun.js",
+    "buildmusic": "cd ./util/music & tsc"
   },
   "keywords": [],
   "repository": {
@@ -14,6 +15,10 @@
   "author": "caier",
   "license": "ISC",
   "dependencies": {
+    "@caier/yts": "^1.1.2",
+    "@discordjs/opus": "^0.1.0",
+    "@types/uuid": "^7.0.2",
+    "@types/ws": "^7.2.3",
     "cheerio": "*",
     "discord.js": "^12.x",
     "dotenv": "^8.1.0",
@@ -23,10 +28,14 @@
     "nodeJs-zip": "^1.0.4",
     "request": "*",
     "request-promise": "*",
-    "uuid": "^3.3.2"
+    "uuid": "^3.3.2",
+    "ytdl-core-discord": "^1.1.0"
   },
   "engines": {
     "node": "^12.x",
     "npm": "*"
+  },
+  "devDependencies": {
+    "typescript": "^3.8.3"
   }
 }
