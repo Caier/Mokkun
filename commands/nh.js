@@ -6,7 +6,7 @@ module.exports = {
     usage: '`$pnh {tagi | numerek | URL}` - wyszukuje specyficzny doujin\n`$pnh` - losowy doujin',
     async execute(msg, args, bot)
     {
-        args = bot.getArgs(msg.content, msg.prefix, "|");
+        args = bot.getArgs(msg.content, msg.prefix, "|", 1);
 
         let doujin = (args[1]) 
         ? (/^[0-9]+$/.test(args[1])) 
