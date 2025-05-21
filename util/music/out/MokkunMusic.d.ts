@@ -2,16 +2,17 @@
 import { TextChannel, MessageEmbed, Guild, GuildMember, StreamDispatcher } from 'discord.js';
 import VoiceConnection from 'discord.js/src/client/voice/VoiceConnection';
 import { VideoEntry } from '@caier/yts/lib/interfaces';
+import { SongEntry } from '@caier/sc/out/interfaces';
 export declare class MusicEntry {
     id: string;
     addedOn: number;
     addedBy: GuildMember;
     queue: MusicQueue;
     type: "yt" | "sc";
-    videoInfo: VideoEntry;
+    videoInfo: VideoEntry | SongEntry;
     dispatcher?: StreamDispatcher;
     constructor(opts: {
-        vid: VideoEntry;
+        vid: VideoEntry | SongEntry;
         member: GuildMember;
         queue: MusicQueue;
         type: "yt" | "sc";
@@ -27,7 +28,7 @@ export declare class MusicQueue {
     VoiceCon: VoiceConnection;
     playing: MusicEntry | null;
     outChannel?: TextChannel;
-    addEntry(entry: MusicEntry, VoiceC: VoiceConnection): void;
+    addEntry(entry: MusicEntry, VoiceC: VoiceConnection, top: boolean): void;
     _playNext(): void;
     play(entry: MusicEntry): Promise<void>;
     _finish(): void;
@@ -43,8 +44,10 @@ export declare class MusicQueue {
 }
 export declare class MokkunMusic {
     private queues;
+    constructor();
     getQueue(guild: Guild): MusicQueue;
     searchVideos(query: string): Promise<import("@caier/yts/out/interfaces").YTSResponse>;
+    searchSC(query: string): Promise<import("@caier/sc/out/interfaces").SCResponse>;
     static getYTStream(url: string): Promise<import("stream").Readable>;
     destroyQueue(guildid: string): void;
 }

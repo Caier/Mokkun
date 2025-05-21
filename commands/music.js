@@ -4,7 +4,7 @@ module.exports = {
     name: 'music',
     description: '',
     usage: '',
-    aliases: ['play', 'skip', 'pause', 'remove', 'queue', 'now'],
+    aliases: ['play', 'skip', 'pause', 'remove', 'queue', 'now', 'playtop', 'sc', 'sctop'],
     notdm: true,
     async execute(msg, args, bot)
     {
@@ -20,7 +20,7 @@ module.exports = {
         args = bot.getArgs(msg.content, msg.prefix, null, (args[0] == 'music') ? 2 : 1);
         if(args[0] == 'music') args.shift();
         
-        if(args[0] == 'play') {
+        if(args[0] == 'play' || args[0] == 'playtop') {
             if(!args[1] && queue.playing && queue.playing.dispatcher && queue.playing.dispatcher.paused) {
                 queue.resume();
                 msg.channel.send(emb('Wznowiono odtwarzanie ⏯'));
@@ -35,7 +35,20 @@ module.exports = {
                 msg.channel.send(emb('Nie znaleziono'));
                 return;
             }
-            queue.addEntry(new MusicEntry({vid: vid[0], member: msg.member, queue: queue, type: "yt"}), await msg.member.voice.channel.join());
+            queue.addEntry(new MusicEntry({vid: vid[0], member: msg.member, queue: queue, type: "yt"}), await msg.member.voice.channel.join(), args[0] == 'playtop');
+        }
+
+        else if(args[0] == 'sc' || args[0] == 'sctop') {
+            if(!args[1]) {
+                msg.channel.send(emb('Co mam odtworzyć?'));
+                return;
+            }
+            let vid = (await bot.music.searchSC(args[1])).songs;
+            if(vid.length == 0) {
+                msg.channel.send(emb('Nie znaleziono'));
+                return;
+            }
+            queue.addEntry(new MusicEntry({vid: vid[0], member: msg.member, queue: queue, type: "sc"}), await msg.member.voice.channel.join(), args[0] == 'sctop');
         }
 
         else if(args[0] == 'skip') {
